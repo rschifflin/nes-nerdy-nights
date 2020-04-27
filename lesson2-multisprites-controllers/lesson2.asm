@@ -40,21 +40,6 @@ RESET:
 ;      BIT $2002
 ;      BPL vblankwait2
 ;;; BACK TO THE REALM OF THE EXPLAINED...
-
-  ;; PPU driver treats READ and WRITES as stateful signals
-  ;; Magic words: $3F00 (first palette addr), $3F10 (second palette addr)
-  ;; States:
-  ;;  Choose Palette MSB State = CPM
-  ;;  Choose Palette LSB State = CPL
-  ;;  Input Ready Byte N = IR<N>
-  ;; OP     | ADDR  | FROM  | EFFECT          | TO
-  ;;-------------------------------------------------------------------------
-  ;; READ   | $2002 | <Any> | Prepare Set Ops | CPM
-  ;; WRITE  | $2006 | CPM   | Set palette MSB | CPL
-  ;;                | CPL   | Set palette LSB | IR1
-  ;; WRITE  | $2007 | IR1   | Set Color 1     | IR2
-  ;;                | IR<N> | Set Color N     | IR<N+1>
-  ;;                | IR16  | Set Color 16    | End State
 load_palette:
   LDA $2002 ; Change state to Choose Palette MSB
   LDA #$3F  ;...
@@ -80,63 +65,87 @@ fill_bg_palette:
 fill_sprite_palette:
   FILL_PALETTE sprite_palette_colors
 
-;; Sprite Data format is specified in 4-byte structs:
-;;   byte0: Y-pos from top of screen, #$00 - #$EF (0-239)
-;;   byte1: Tile index from pattern table, #$00 - #$FF (0-255)
-;;   byte2: Attribute bitmask
-;;      7 6 5 4 3 2 1 0
-;;     |x| | | | | | | | Flip sprite vertically
-;;     | |x| | | | | | | Flip sprite horizontally
-;;     | | |x| | | | | | Priority: 0 = In front of bg, 1 = behind bg
-;;     | | | |x| | | | | unknown
-;;     | | | | |x| | | | unknown
-;;     | | | | | |x| | | unknown
-;;     | | | | | | |x|x| 2-bit palette index to choose which 4-color palette
-;;   byte3: X-pos from left of screen, #$00 - #$F9 (0-249)
-
-;; PPUCTRL bitmask (Memory mapped to $2000)
-;;    7 6 5 4 3 2 1 0
-;;   |x| | | | | | | | Enable vblank NMI: 0 = false, 1 = true
-;;   | |x| | | | | | | unknown
-;;   | | |x| | | | | | Sprite size: 0 = 8x8, 1 = 8x16
-;;   | | | |x| | | | | BG pattern table addr: 0 = $0000, 1 = $1000
-;;   | | | | |x| | | | Sprite pattern table addr: 0 = $0000, 1 = $1000
-;;   | | | | | |x| | | VRAM address increment per CPU access: 0 = inc1, 1 = inc32
-;;   | | | | | | |x|x| 2-bit base nametable address
-
-  LDA #$80
-  STA $0200        ; place in center ($80) of y-axis
-  STA $0203        ; place in center ($80) of x-axis
-  LDA #$00
-  STA $0201        ; sprite pattern 0
-  LDA #$01
-  STA $0202        ; In front of bg, no flip, colorset 1
-
   LDA #%10000000 ; Enable vblank
   STA $2000     ; Store bitmask for PPUCTRL in memory-mapped region $2000
-  LDA #%10010000 ; Intensify color, Enable sprites
+
+  LDA #%10010000 ; Enable sprites
   STA $2001     ; Store bitmask for PPUMASK in memory-mapped region $2001
 
+sprite_data:
+;;    Y-pos   Pattern   Attributes    X-pos
+  .db $80,    $32,      %00000001,    $80
+  .db $80,    $33,      %00000001,    $88
+  .db $88,    $34,      %00000001,    $80
+  .db $88,    $35,      %00000001,    $88
+
   LDX #$00
-  LDY #$00
-  STX $0203
-loop:
-  ;; Count x from 0 to 255. For each full x-cycle, count y from 0 to 15. For each full y-cycle, scroll the sprite
-  ;; End result: Scroll the sprite every 256 * 16 = 2^8*2^4 = 2^12 = 4096 iterations
-  INX ; Count from 0 to 255...
-  CPX #$00 ; Every 256 frames...
-  BNE loop
-  INY ; Count from 0 to 15...
-  CPY #$10
-  BNE loop ; Every 16 frames
-  LDY #$00 ; Reset the 0-16 counter (the 0-255 counter rolls over naturally)
-  INC $0203 ; Scroll sprite0's x-pos by 1
-  JMP loop
+sprite_load_loop:
+  LDA sprite_data, x
+  STA $0200, x
+  INX
+  CPX #$10
+  BNE sprite_load_loop
+
+  ;; Use 0404 for frame counter, 0405 for current frame
+  LDA #$00
+  STA $0404
+  STA $0405
+game_loop:
+
+  ;; Handle per-frame logic like controller checking
+  LDA $0404 ;; Frame counter
+  CMP $0405 ;; Current Frame
+  BEQ game_loop ;; Loop if we've handled this frame already
+  STA $0405 ;; Mark current frame as handled
+
+  ;; signal controllers for reading
+  LDA #$00
+  STA $4016
+  LDA #$01
+  STA $4016
+
+  LDA $4016 ; Ignore A
+  LDA $4016 ; Ignore B
+  LDA $4016 ; Ignore Select
+  LDA $4016 ; Ignore Start
+
+  LDA $4016 ; Check UP
+  AND #$01
+  BEQ controller_p1_up_done ; skip if unpressed
+  DEC $0200
+  DEC $0204
+  DEC $0208
+  DEC $020C
+controller_p1_up_done:
+  LDA $4016 ; Check DOWN
+  AND #$01
+  BEQ controller_p1_down_done ; skip if unpressed
+  INC $0200
+  INC $0204
+  INC $0208
+  INC $020C
+controller_p1_down_done:
+  LDA $4016 ; Check LEFT
+  AND #$01
+  BEQ controller_p1_left_done ; skip if unpressed
+  DEC $0203
+  DEC $0207
+  DEC $020B
+  DEC $020F
+controller_p1_left_done:
+  LDA $4016 ; Check RIGHT
+  AND #$01
+  BEQ controller_p1_right_done ; skip if unpressed
+  INC $0203
+  INC $0207
+  INC $020B
+  INC $020F
+controller_p1_right_done:
+  JMP game_loop
 
 NMI: ; Non-maskable interrupt, in our case VBLANK
      ; PPU updates (DMA transfers for ex) can ONLY be done during the vblank period so must be signalled by NMI
-  INC $0200 ; Scroll sprite0's y-pos by 1 every frame
-
+  INC $0404 ; Increment frame counter
   LDA #$00
   STA $2003 ; Tell PPU the low byte of a memory region for DMA
   LDA #$02
