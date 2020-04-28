@@ -6,8 +6,8 @@ frame_counter .rs 1  ; Alloc 1 byte for the frame counter
 current_frame .rs 1  ; Alloc 1 byte for the current frame
 controller     .rs 1 ; Holds bitmask of controller state
 
-  .rsset $0200 ; Start generating variables at 0x00
-mario_sprite .rs 16 ; 4 pixels to make mario, each 4 bytes large
+  .rsset $0200
+mario_sprite .rs 256 ; Holds 256 bytes, or 64 4-byte sprite structs, for DMA
 
   .inesprg 1 ; 1x 16kb bank of PRG code
   .ineschr 1 ; 1x 8kb bank of CHR code
@@ -101,7 +101,6 @@ run:
   CMP current_frame ;; Current Frame
   BEQ run ;; Loop if we've handled this frame already
   STA current_frame ;; Mark current frame as handled
-
   JSR MoveMario
   JMP run
 ;;;;

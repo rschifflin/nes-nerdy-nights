@@ -111,37 +111,78 @@ _update_controller_loop:
   BNE _update_controller_loop
   RTS
 
+;; MOVE_SPRITE_16 Pointer, Direction, Amount
+;; Moves the 16px by 16px sprite struct pointed to by Pointer in Direction by Amount
+MOVE_SPRITE_16 .macro
+  LDA #LOW(\1)
+  STA ptr
+  LDA #HIGH(\1)
+  STA ptr+1
+  LDA \3 ; Amount
+  STA r1
+  LDA #\2 ; Direction
+  JSR _move_sprite_16
+  .endm
+_move_sprite_16:
+  TAX
+  AND #DIR_VERTICAL
+  BEQ _move_sprite_16_prepare_hor
+_move_sprite_16_prepare_vert:
+  LDY #$00
+  JMP _move_sprite_16_prepare_done
+_move_sprite_16_prepare_hor:
+  LDY #$03
+_move_sprite_16_prepare_done:
+  TXA
+  LDX #$00
+  AND #DIR_POSITIVE
+  BEQ _move_sprite_16_negative
+_move_sprite_16_positive:
+  LDA [ptr], Y
+  CLC
+  ADC r1
+  STA [ptr], Y
+  INY
+  INY
+  INY
+  INY
+  INX
+  CPX #$04
+  BNE _move_sprite_16_positive
+  RTS
+_move_sprite_16_negative:
+  LDA [ptr], Y
+  SEC
+  SBC r1
+  STA [ptr], Y
+  INY
+  INY
+  INY
+  INY
+  INX
+  CPX #$04
+  BNE _move_sprite_16_negative
+  RTS
+
 MoveMario:
   LDA #CONTROLLER_P1_UP
   AND controller
   BEQ _move_mario_up_done
-  DEC mario_sprite
-  DEC mario_sprite + 4
-  DEC mario_sprite + 8
-  DEC mario_sprite + 12
+  MOVE_SPRITE_16 mario_sprite, DIR_UP, #$02
 _move_mario_up_done:
   LDA #CONTROLLER_P1_DOWN
   AND controller
   BEQ _move_mario_down_done
-  INC mario_sprite
-  INC mario_sprite + 4
-  INC mario_sprite + 8
-  INC mario_sprite + 12
+  MOVE_SPRITE_16 mario_sprite, DIR_DOWN, #$02
 _move_mario_down_done:
   LDA #CONTROLLER_P1_LEFT
   AND controller
   BEQ _move_mario_left_done
-  DEC mario_sprite + 3
-  DEC mario_sprite + 7
-  DEC mario_sprite + 11
-  DEC mario_sprite + 15
+  MOVE_SPRITE_16 mario_sprite, DIR_LEFT, #$02
 _move_mario_left_done:
   LDA #CONTROLLER_P1_RIGHT
   AND controller
   BEQ _move_mario_done
-  INC mario_sprite + 3
-  INC mario_sprite + 7
-  INC mario_sprite + 11
-  INC mario_sprite + 15
+  MOVE_SPRITE_16 mario_sprite, DIR_RIGHT, #$02
 _move_mario_done:
   RTS
