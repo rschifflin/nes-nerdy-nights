@@ -58,8 +58,8 @@ _load_ppu:
 ;; X keeps the index of the hi loop and counts down
 ;; When X is 0, we've finished counting the hi byte and we enter the lo loop
 ;; When X is nonzero, we enter the hi inner loop
-_write_ppu_bytes_loop_hi:
   CPX #$00
+_write_ppu_bytes_loop_hi:
   BNE _write_ppu_bytes_loop_hi_inner
   LDY #$00
   JMP _write_ppu_bytes_loop_lo
@@ -70,11 +70,10 @@ _write_ppu_bytes_loop_hi:
 _write_ppu_bytes_loop_hi_inner:
   LDA [ptr],Y
   STA PPUDATA ; Write byte to ppu
-  INY
-  CPY #$00
+  INY ;; may set the ZERO flag to break the hi inner loop
   BNE _write_ppu_bytes_loop_hi_inner
   INC ptr+1
-  DEX
+  DEX ;; may set the ZERO flag to break the hi outer loop
   JMP _write_ppu_bytes_loop_hi
 
 ;; During the lo loop, Y keeps the index and counts up to the target stored in r1.
