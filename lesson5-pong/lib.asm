@@ -100,11 +100,10 @@ UpdateController:
   ;; zero out in-mem controller
   LDA #$00
   STA controller
-  ;; signal controllers for reading
-  LDA #$00
-  STA CONTROLLER_STATUS
   LDA #$01
-  STA CONTROLLER_STATUS
+  STA CONTROLLER_STATUS ;; Instructs the controller to switch to parallel and fill with player inputs
+  LDA #$00
+  STA CONTROLLER_STATUS ;; Instructs the controller to switch to serial for reading outputs
   ;; Read controller 8 times; push bits to controller var
   LDX #$08
 _update_controller_loop:
