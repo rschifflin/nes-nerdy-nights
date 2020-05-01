@@ -58,7 +58,7 @@ move_ball_vert_done:
   LDX ball+3 ;; ball xpos
   LDA state
   AND #STATE_BALL_LEFT
-  BEQ move_ball_left
+  BNE move_ball_left
 move_ball_right:
   INX
   CPX #RIGHT_PADDLE
@@ -110,26 +110,52 @@ move_ball_left_hit_done:
   MOVE_SPRITE_16 ball, DIR_LEFT, #$01
   JMP move_ball_done
 move_ball_reset:
+  JSR ScorePoint
+  JMP move_ball_done
+move_ball_reverse_hori:
+  LDA state
+  EOR #STATE_BALL_LEFT
+  STA state
+  FLIPH_SPRITE_16 ball
+move_ball_done:
+  RTS
+
+ScorePoint:
   LDA ball+3
   CMP #$80 ;; Left half or right half of screen
-  BCC move_ball_score_ai ;; Ball is on the left half
+  BCC score_point_ai ;; Ball is on the left half
   INCREMENT_SCORE p1_score
-  JMP move_ball_score_done
-move_ball_score_ai:
+  JMP score_point_done
+score_point_ai:
   INCREMENT_SCORE p2_score
-move_ball_score_done:
+score_point_done:
   LDA #$80
   STA ball+3
   STA ball+11
   LDA #$88
   STA ball+7
   STA ball+15
-  JMP move_ball_done
-move_ball_reverse_hori:
+
+  LDA p1_score
+  BEQ check_p1_winner_done
+  LDA p1_score+1
+  CMP #$05
+  BCC check_p1_winner_done
   LDA state
-  EOR #STATE_BALL_LEFT
+  AND #STATE_MASK_FLAGS
+  ORA #STATE_P1_WIN
   STA state
-move_ball_done:
+check_p1_winner_done:
+  LDA p2_score
+  BEQ check_p2_winner_done
+  LDA p2_score+1
+  CMP #$05
+  BCC check_p2_winner_done
+  LDA state
+  AND #STATE_MASK_FLAGS
+  ORA #STATE_P2_WIN
+  STA state
+check_p2_winner_done:
   RTS
 
 MoveAiPaddle

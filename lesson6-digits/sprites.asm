@@ -2,10 +2,10 @@ sprite_data:
 ;;    Y-pos   Pattern   Attributes  X-pos
 
 ;; COIN ball
-  .db $38,    $A5,      $11,        $70
-  .db $38,    $A6,      $11,        $78
-  .db $40,    $A7,      $11,        $70
-  .db $40,    $A8,      $11,        $78
+  .db $38,    $A6,      $4B,        $70
+  .db $38,    $A5,      $4B,        $78
+  .db $40,    $A8,      $4B,        $70
+  .db $40,    $A7,      $4B,        $78
 
 ;; Left Paddle
   .db $80,    $53,      $11,        $20

@@ -177,6 +177,54 @@ _move_sprite_16_negative:
   BNE _move_sprite_16_negative
   RTS
 
+;; FLIPH_SPRITE_16 Pointer
+;; Flips a 16px by 16px sprite struct pointed to by Pointer horizontally
+FLIPH_SPRITE_16 .macro
+  LDA #LOW(\1)
+  STA ptr
+  LDA #HIGH(\1)
+  STA ptr+1
+  JSR _fliph_sprite_16
+  .endm
+_fliph_sprite_16:
+  ;EOR #SPRITE_FLIP_HORIZONTAL
+  LDY #$01
+  LDA [ptr], Y
+  STA r0
+  LDY #$05
+  LDA [ptr], Y
+  LDY #$01
+  STA [ptr], Y
+  LDA r0
+  LDY #$05
+  STA [ptr], Y
+
+  LDY #$09
+  LDA [ptr], Y
+  STA r0
+  LDY #$0D
+  LDA [ptr], Y
+  LDY #$09
+  STA [ptr], Y
+  LDA r0
+  LDY #$0D
+  STA [ptr], Y
+
+  LDY #$02
+  LDX #$04
+fliph_sprite_16_loop:
+  LDA [ptr], Y
+  EOR #SPRITE_FLIP_HORIZONTAL
+  STA [ptr], Y
+  INY
+  INY
+  INY
+  INY
+  DEX
+  BNE fliph_sprite_16_loop
+  RTS
+
+
 ADD_DEC_TO_DEC .macro
   LDY \2 ; Load decimal digit size
   BEQ _add_decimal_byte_done_\@ ; Cant add to 0 bytes

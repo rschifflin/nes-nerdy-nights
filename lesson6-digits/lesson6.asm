@@ -109,22 +109,26 @@ run:
   CMP current_frame ;; Current Frame
   BEQ run ;; Loop if we've handled this frame already
   STA current_frame ;; Mark current frame as handled
-  AND #%00011111 ;; Tick every frame
-  BNE inc_time_done
-  INCREMENT_TIME
-inc_time_done:
-
   JSR UpdateController ; Read controller input
 
   LDA #STATE_ACTION
-  CMP state
-  BEQ run_action
+  AND state
+  BNE run_action
 
-  LDA #STATE_TITLE
-  CMP state
-  BEQ run_title
+  LDA #STATE_P1_WIN
+  ORA #STATE_P2_WIN
+  AND state
+  BNE run_win
+
+  JMP run_title
 
 run_action:
+  LDA current_frame
+  AND #%00011111 ;; Tick every frame
+  BNE inc_time_done
+  INCREMENT_TIME
+
+inc_time_done:
   JSR MoveAiPaddle
   JSR MovePlayerPaddle
   JSR MoveBall
@@ -138,17 +142,41 @@ run_title:
   STA state
 run_title_done:
   JMP run
+
+run_win:
+  LDA controller
+  AND #CONTROLLER_P1_START
+  BEQ run_win_done
+  LDA #$00
+  STA p1_score
+  STA p1_score+1
+  STA p2_score
+  STA p2_score+1
+  STA time
+  STA time+1
+  STA time+2
+  STA time+3
+
+  ;; Resets state, preserving flags
+  LDA state
+  AND #STATE_MASK_FLAGS
+  ORA #STATE_ACTION
+  STA state
+
+run_win_done:
+  JMP run
+
 ;;;;
 
 NMI: ; Non-maskable interrupt, in our case signalling start of VBLANK
      ; PPU updates (DMA transfers for ex) can ONLY be done during the vblank period so must be signalled by NMI
   PUSH_IRQ; Protect in-progress flags/registers from getting clobbered by NMI
   INC frame_counter
-  ; JSR DrawScore
-  LDA #STATE_ACTION
   PPU_DMA SPRITE_AREA ; DMA copy sprite data
+  JSR DrawStart
   JSR DrawTime
   JSR DrawScore
+  JSR DrawWinner
 
   LDA #$00
   STA PPUSCROLL ; Disable horizontal scrolling after NMI always
@@ -170,6 +198,9 @@ attribute_table:
 
 sprites:
   .include "sprites.asm"
+
+strings:
+  .include "strings.asm"
   ; remaining bank 1 code ...
 
   .org INTERRUPT_VECTOR_TABLE
