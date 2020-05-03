@@ -1,7 +1,7 @@
 sprite_data:
 ;;    Y-pos   Pattern   Attributes  X-pos
 
-;; COIN ball
+;; Coin ball
   .byte $38,    $A6,      $4B,        $70
   .byte $38,    $A5,      $4B,        $78
   .byte $40,    $A8,      $4B,        $70
