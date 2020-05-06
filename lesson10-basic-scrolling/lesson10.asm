@@ -19,8 +19,8 @@ p2_controller: .res 1  ;; Holds bitmask of controller state
 
 scroll_x:      .res 1  ;; Holds horizontal scroll position
 scroll_y:      .res 1  ;; Holds vertical scroll position
-scroll_dx:     .res 1  ;; Holds horizontal scroll delta
-scroll_dy:     .res 1  ;; Holds vertical scroll delta
+scroll_dx:     .res 1  ;; Holds horizontal scroll delta, signed
+scroll_dy:     .res 1  ;; Holds vertical scroll delta, signed
 
 sysflags:      .res 1 ;; For miscellaneous flags
                       ;; bit 0: whether or not the horizontal banks are swapped. 0 = normal order, 1 = swapped order
@@ -124,6 +124,9 @@ NMI:
   ;; Protect in-progress flags/registers from getting clobbered by NMI
   PUSH_IRQ
 
+  ;; Advance program frame
+  INC frame_counter
+
   ;; DMA copy sprite data. This data should be prepared in advance prior to the NMI
   PPU_DMA SPRITE_AREA
 
@@ -133,14 +136,23 @@ NMI:
   ;; JSR DrawScore
   ;; JSR DrawWinner
 
-  ;; Perform scrolling here (setting both h/v scroll offsets to 0)
   .scope scroll_x
       LDA scroll_dx
+      BMI negative
+    positive:
       CLC
       ADC scroll_x
       STA scroll_x
       BCC done
-
+      JMP reverse_scroll
+    negative:
+      TWOS_COMP scroll_dx
+      LDA scroll_x
+      SEC
+      SBC scroll_dx
+      STA scroll_x
+      BCS done
+    reverse_scroll:
       ;; Scrolled past the end- swap horizontal banks
       LDA sysflags
       EOR #SYSFLAG_SCROLL_X_ORDER
@@ -149,14 +161,10 @@ NMI:
       LDA #$00
       STA scroll_dx
   .endscope
-  .scope scroll_y
-      LDA #$00
-      STA scroll_dy
-  .endscope
+  LDA #$00
+  STA scroll_dy
 
-  LDA $00
-  STA PPUADDR
-  STA PPUADDR
+  BIT PPUCTRL
   LDA scroll_x
   STA PPUSCROLL
   LDA scroll_y
@@ -166,11 +174,6 @@ NMI:
   AND #SYSFLAG_SCROLL_X_ORDER
   ORA #%10011000
   STA PPUCTRL
-  LDA #%00011110
-  STA PPUMASK
-
-  ;; Advance program frame
-  INC frame_counter
 
   ;; Restore in-progress flags/registers
   POP_IRQ
@@ -228,10 +231,17 @@ run:
   .scope scroll
       LDA p1_controller
       AND #CONTROLLER_RIGHT
-      BEQ done
+      BEQ right_done
       LDA #$01
       STA scroll_dx
-    done:
+    right_done:
+
+      LDA p1_controller
+      AND #CONTROLLER_LEFT
+      BEQ left_done
+      LDA #$FF ;; Negative 1
+      STA scroll_dx
+    left_done:
   .endscope
 
   JMP run

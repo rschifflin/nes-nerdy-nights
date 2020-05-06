@@ -27,6 +27,14 @@
   PLA ;; Pull A
 .endmacro
 
+.macro TWOS_COMP mem_loc
+  LDA #$FF
+  SEC
+  SBC mem_loc
+  ADC #$00
+  STA mem_loc
+.endmacro
+
 .proc WaitVblank
   BIT PPUSTATUS  ;; Test the interrupt bit (bit 7) of the PPUSTATUS port
   BPL WaitVblank ;;Loop until the interrupt bit is set
