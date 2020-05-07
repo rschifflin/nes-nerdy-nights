@@ -349,13 +349,35 @@ scroll_buffer_done:
       LDA p1_controller
       AND #CONTROLLER_RIGHT
       BEQ right_done
+
+      LDA cam_x+1
+      CMP #>MAX_X_SCROLL
+      BCC @apply      ;; A < MAX_X_SCROLL
+      BNE right_done  ;; A > MAX_X_SCROLL
+      ;; Else A == MAX_X_SCROLL, check lo byte
+      LDA cam_x
+      CMP #<MAX_X_SCROLL
+      BCS right_done  ;; A >= MAX_X_SCROLL
+      ;; Else A < MAX_X_SCROLL, apply
+    @apply:
       LDA #$01
       STA cam_dx
     right_done:
-
       LDA p1_controller
       AND #CONTROLLER_LEFT
       BEQ left_done
+
+      LDA cam_x+1
+      CMP #>MIN_X_SCROLL
+      BCC left_done ;; A < MIN_X_SCROLL
+      BNE @apply    ;; A > MINX_X_SCROLL
+      ;; Else A == MIN_X_SCROLL, check lo byte
+      LDA cam_x
+      CMP #<MIN_X_SCROLL
+      BCC left_done ;; A < MIN_X_SCROLL
+      BEQ left_done ;; A = MIN_X_SCROLL
+      ;; Else A > MIN_X_SCROLL, apply
+    @apply:
       LDA #$FF ;; Negative 1
       STA cam_dx
     left_done:
