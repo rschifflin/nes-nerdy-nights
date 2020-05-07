@@ -133,71 +133,9 @@ NMI:
 
   ;; DMA copy sprite data. This data should be prepared in advance prior to the NMI
   PPU_DMA sprite_area
+  JSR UpdateScroll
 
-  .scope write_scroll_buffer
-      LDA cam_x
-      .repeat 3
-        LSR A
-      .endrepeat
-      TAX
-      LDA sysflags
-      AND #SYSFLAG_SCROLL_X_ORDER
-      BNE when_flipped
-    when_default:
-      LDY #$24
-      JSR SetPPUAddress
-      JMP write
-    when_flipped:
-      LDY #$20
-      JSR SetPPUAddress
-    write:
-      LDA #PPUCTRL_INC32
-      STA PPUCTRL
-      WRITE_PPU_BYTES scroll_buffer_x_right, $1E ;; 30 bytes
-  .endscope
-
-  ;; Perform drawing here, ie writes to the PPU nametables to set patterns and attributes
-  ;; JSR DrawStart
-  ;; JSR DrawTime
-  ;; JSR DrawScore
-  ;; JSR DrawWinner
-
-  .scope scroll_x
-      LDA cam_dx
-      BMI negative
-    positive:
-      CLC
-      ADC cam_x
-      STA cam_x
-      BCC done
-      INC cam_x+1
-      JMP swap_tables
-    negative:
-      STA_TWOS_COMP cam_dx
-      LDA cam_x
-      SEC
-      SBC cam_dx
-      STA cam_x
-      BCS done
-      DEC cam_x+1
-    swap_tables:
-      ;; Scrolled past the end- swap horizontal banks
-      LDA sysflags
-      EOR #SYSFLAG_SCROLL_X_ORDER
-      STA sysflags
-    done:
-      LDA #$00
-      STA cam_dx
-  .endscope
-  LDA #$00
-  STA cam_dy
-
-  BIT PPUCTRL
-  LDA cam_x
-  STA PPUSCROLL
-  LDA cam_y
-  STA PPUSCROLL
-
+  ;; Clean up PPUCTRL
   LDA sysflags
   AND #SYSFLAG_SCROLL_X_ORDER
   ORA #%10011000
@@ -205,7 +143,6 @@ NMI:
 
   ;; Restore in-progress flags/registers
   POP_IRQ
-
   RTI
 
 palette:
@@ -241,17 +178,22 @@ run:
   BEQ run
   STA current_frame
 
-  ;; Compare scroll_x % 8. If we're tile-aligned, we need to fetch fresh buffers
-  .scope scroll_buffers
+  ;; Compare cam_x % 8 for tile-alignment. If we're tile-aligned, we need to fetch fresh buffers
+  .scope camera_buffers
       LDA cam_x
       AND #%00000111
-      BNE done
+      BEQ skip_scroll
+      JMP start_scroll
+    skip_scroll:
+      JMP done
+    start_scroll:
       .scope scroll_right_buffer
         fetch:
           LDA cam_x
           PHA
           LDA cam_x+1
           PHA
+
           INC cam_x+1 ;; The rightmost buffer origin is 256 pixels right of camera, so add 1 to the high byte
           ;; We convert the world coordinates of the camera's origin tile to its memory address
           ;; This means turning pixels into a byte offset from some base tile0 in memory
@@ -312,9 +254,82 @@ run:
           PLA
           STA cam_x
       .endscope
-    done:
+      .scope scroll_left_buffer
+          LDA cam_x
+          PHA
+          LDA cam_x+1
+          PHA
+
+          LDA cam_x
+          SEC
+          SBC #$08 ;; The leftmost buffer origin is 8 pixels left of camera, so sub 8
+          STA cam_x
+          BCS no_borrow
+          DEC cam_x+1
+        no_borrow:
+          ;; We convert the world coordinates of the camera's origin tile to its memory address
+          ;; This means turning pixels into a byte offset from some base tile0 in memory
+
+          ;; Each page of 960 bytes of memory spans 32 tiles on the x-axis
+          ;; CamHi is a scalar of 32 tiles on the x-axis
+          ;; Each page of 960 bytes of memory begins with the 32 toprow tiles
+          ;; CamLo represents the offset in pixels to the desired toprow tile. Divide by 8 to get the offset in tiles
+          ;; So the effective byte address is
+          ;; Base + (960 * CamHi) + (CamLo >> 3)
+          LDA #<name_table
+          STA ptr
+          LDA #>name_table
+          STA ptr+1
+
+          LDX cam_x+1
+          BEQ offset_cam_lo
+        offset_cam_hi: ;; Mulitply CamHi*960 and add to the base address
+          LDA #$C0
+          CLC
+          ADC ptr
+          STA ptr
+          LDA #$03
+          ADC ptr+1
+          STA ptr+1
+          DEX
+          BNE offset_cam_hi
+        offset_cam_lo: ;; Add the tile bits of CamLo to the address
+          .repeat 3
+            LSR cam_x
+          .endrepeat
+          LDA cam_x
+          CLC
+          ADC ptr
+          STA ptr
+          BCC target_stored
+          INC ptr+1
+        target_stored:
+          LDX #$00
+        write:
+          LDY #$00
+        write_8:
+          LDA (ptr), Y
+          STA scroll_buffer_x_left, X
+          INX
+          CPX #$1E ;; Write 30 bytes per column
+          BEQ write_done
+          TYA
+          CLC
+          ADC #$20 ;; Next column cell is 32 bytes away
+          TAY
+          BNE write_8
+          INC ptr+1
+          BNE write ;; Bump offset by 256 every 8 writes
+        write_done:
+          PLA
+          STA cam_x+1
+          PLA
+          STA cam_x
+      .endscope
+      done:
   .endscope
 
+scroll_buffer_done:
   ;; Read controller input
   JSR UpdateController
 
@@ -345,7 +360,6 @@ run:
       STA cam_dx
     left_done:
   .endscope
-
   JMP run
 
 .segment "CHR0" ; 8kb, always present
