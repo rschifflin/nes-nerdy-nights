@@ -27,7 +27,7 @@
   PLA ;; Pull A
 .endmacro
 
-.macro TWOS_COMP mem_loc
+.macro STA_TWOS_COMP mem_loc
   LDA #$FF
   SEC
   SBC mem_loc
@@ -58,13 +58,13 @@
     BNE clear
   fill_sprites:
     LDA sprite_data, x
-    STA SPRITE_AREA, x
+    STA sprite_area, x
     INX
     CPX #$90 ;; 144 bytes of sprite values
     BNE fill_sprites
     LDA #$FE
   fill_invisible: ;; fill rest with an invisible sprite
-    STA SPRITE_AREA, x
+    STA sprite_area, x
     INX
     BNE fill_invisible
     RTS
