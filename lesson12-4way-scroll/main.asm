@@ -25,8 +25,9 @@ cam_y:       .res 2  ;; Holds vertical scroll position 16bit
 cam_dx:      .res 1  ;; Holds horizontal scroll delta, signed
 cam_dy:      .res 1  ;; Holds vertical scroll delta, signed
 
-sysflags:      .res 1 ;; For miscellaneous flags
-                      ;; bit 0: whether or not the horizontal banks are swapped. 0 = normal order, 1 = swapped order
+;; Rendering variables
+render_flags:      .res 1 ;; For miscellaneous flags
+                      ;; bit 0: whether or not the nametables are swapped. 0 = normal order, 1 = swapped order
 ;;;;
 
 ;;;; ZP program variables
@@ -37,6 +38,9 @@ current_frame: .res 1
 
 .segment "BSS" ; Rest of RAM, $0200-$07FF. First 255 bytes are sprite DMA. Rest are free to use
 sprite_area:               .res 256
+
+scroll_speed:              .res 1 ;; How much to scroll by when pressing left or right
+scroll_buffer_status:      .res 1 ;; Indicates whether a buffer is ready (1) or not-ready (0). bit 3 = left attr, bit 2 = left name, bit 1 = right_attr, bit 0 = right_name
 scroll_buffer_left_name:   .res 30
 scroll_buffer_right_name:  .res 30
 scroll_buffer_left_attr:   .res 8
@@ -87,6 +91,16 @@ clear_stack:
   ;; Write software stack pointer
   JSR InitMemory
 
+  ;; Initialize name and attr buffers for rendering
+  JSR FillLeftAttrBuffer
+  JSR FillRightAttrBuffer
+  JSR FillLeftNameBuffer
+  JSR FillRightNameBuffer
+
+  ;; Initialize speed to 1
+  LDA #$01
+  STA scroll_speed
+
   ;; Wait for PPU to vblank. PPU hw finishing warming up
   JSR WaitVblank
 
@@ -98,9 +112,9 @@ clear_stack:
 
   ;; name table 1 starts at PPU address $2400
   SET_PPU_ADDRESS $2400
-  Call_WritePPUBytes name_table_screen0, $03C0 ;; Copy 960 bytes
+  Call_WritePPUBytes name_table_screen1, $03C0 ;; Copy 960 bytes
   ;; attr table starts right after at PPU address $23C0
-  Call_WritePPUBytes attr_table_screen0, $0040 ;; Copy 64 bytes
+  Call_WritePPUBytes attr_table_screen1, $0040 ;; Copy 64 bytes
 
   ;; palettes start at PPU address $3F00
   SET_PPU_ADDRESS $3F00
@@ -142,8 +156,8 @@ NMI:
   JSR UpdateScroll
 
   ;; Clean up PPUCTRL
-  LDA sysflags
-  AND #SYSFLAG_SCROLL_X_ORDER
+  LDA render_flags
+  AND #RENDER_FLAG_NAMETABLES_FLIPPED
   ORA #%10011000
   STA PPUCTRL
 
@@ -184,75 +198,96 @@ run:
   BEQ run
   STA current_frame
 
-  ;; Compare cam_x % 8 for tile-alignment. If we're tile-aligned, we need to fetch fresh buffers
   .scope camera_buffers
-      LDA cam_x
-      AND #%00011111
-      BNE skip_attr_buffer
+    check_left_attr:
+      LDA scroll_buffer_status
+      AND #SCROLL_BUFFER_LEFT_ATTR_READY
+      BNE check_right_attr
       JSR FillLeftAttrBuffer
+      LDA scroll_buffer_status
+      ORA #SCROLL_BUFFER_LEFT_ATTR_READY
+      STA scroll_buffer_status
+
+    check_right_attr:
+      LDA scroll_buffer_status
+      AND #SCROLL_BUFFER_RIGHT_ATTR_READY
+      BNE check_left_name
       JSR FillRightAttrBuffer
-    skip_attr_buffer:
-      LDA cam_x
-      AND #%00000111
-      BNE done
+      LDA scroll_buffer_status
+      ORA #SCROLL_BUFFER_RIGHT_ATTR_READY
+      STA scroll_buffer_status
+
+    check_left_name:
+      LDA scroll_buffer_status
+      AND #SCROLL_BUFFER_LEFT_NAME_READY
+      BNE check_right_name
       JSR FillLeftNameBuffer
+      LDA scroll_buffer_status
+      ORA #SCROLL_BUFFER_LEFT_NAME_READY
+      STA scroll_buffer_status
+
+    check_right_name:
+      LDA scroll_buffer_status
+      AND #SCROLL_BUFFER_RIGHT_NAME_READY
+      BNE done
       JSR FillRightNameBuffer
+      LDA scroll_buffer_status
+      ORA #SCROLL_BUFFER_RIGHT_NAME_READY
+      STA scroll_buffer_status
     done:
   .endscope
 
 scroll_buffer_done:
   ;; Read controller input
   JSR UpdateController
-
-  ;;;; Enter state machine
-  ;; Ex:
-  ;; LDA #STATE_1
-  ;; AND state
-  ;; BNE run_state_1
-  ;;
-  ;; LDA #STATE_2
-  ;; AND state
-  ;; BNE run_state_1
-  ;; ...
-  ;;;;
-
   .scope scroll
       LDA p1_controller
       AND #CONTROLLER_RIGHT
       BEQ right_done
 
-      LDA cam_x+1
-      CMP #>MAX_X_SCROLL
-      BCC @apply      ;; A < MAX_X_SCROLL
-      BNE right_done  ;; A > MAX_X_SCROLL
-      ;; Else A == MAX_X_SCROLL, check lo byte
-      LDA cam_x
-      CMP #<MAX_X_SCROLL
-      BCS right_done  ;; A >= MAX_X_SCROLL
-      ;; Else A < MAX_X_SCROLL, apply
-    @apply:
-      LDA #$01
+      LDA scroll_speed
       STA cam_dx
     right_done:
       LDA p1_controller
       AND #CONTROLLER_LEFT
       BEQ left_done
 
-      LDA cam_x+1
-      CMP #>MIN_X_SCROLL
-      BCC left_done ;; A < MIN_X_SCROLL
-      BNE @apply    ;; A > MINX_X_SCROLL
-      ;; Else A == MIN_X_SCROLL, check lo byte
-      LDA cam_x
-      CMP #<MIN_X_SCROLL
-      BCC left_done ;; A < MIN_X_SCROLL
-      BEQ left_done ;; A = MIN_X_SCROLL
-      ;; Else A > MIN_X_SCROLL, apply
-    @apply:
-      LDA #$FF ;; Negative 1
+      LDA scroll_speed
       STA cam_dx
+      STA_TWOS_COMP cam_dx
     left_done:
+      LDA p1_controller
+      AND #CONTROLLER_UP
+      BEQ up_done
+
+      LDA scroll_speed
+      CLC
+      ADC #01
+      CMP #MAX_X_SCROLL_SPEED + 1
+      BCC @scroll_speed_valid
+      LDA #MAX_X_SCROLL_SPEED
+    @scroll_speed_valid:
+      STA scroll_speed
+    up_done:
+      LDA p1_controller
+      AND #CONTROLLER_DOWN
+      BEQ down_done
+
+      LDA scroll_speed
+      SEC
+      SBC #01
+      CMP #MIN_X_SCROLL_SPEED
+      BCS @scroll_speed_valid
+      LDA #MIN_X_SCROLL_SPEED
+    @scroll_speed_valid:
+      STA scroll_speed
+    down_done:
+
   .endscope
+  JSR CheckBounds
+  LDA render_flags
+  AND #RENDER_FLAG_SCROLL_UNLOCKED
+  STA render_flags ;; Allows NMI to use cam_dx/cam_dy to scroll its registers
   JMP run
 
 .segment "CHR0" ; 8kb, always present

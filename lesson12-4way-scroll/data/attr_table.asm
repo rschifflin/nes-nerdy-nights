@@ -12,3 +12,8 @@ attr_table_screen2:
   .repeat 64
     .byte %10101010
   .endrepeat
+
+attr_table_screen3:
+  .repeat 64
+    .byte %01010101
+  .endrepeat

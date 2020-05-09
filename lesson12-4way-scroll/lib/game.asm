@@ -1,7 +1,70 @@
 ;;;; GAME-SPECIFIC SUBROUTINES AND MACROS
 
-MAX_X_SCROLL = $0200
+MAX_X_SCROLL = $0300
 MIN_X_SCROLL = $0000
+MAX_X_SCROLL_SPEED = $07
+MIN_X_SCROLL_SPEED = $01
+
+;; Ensures cam_x + cam_dx doesnt exceed world bounds; decrease cam_dx to the limit if so.
+.proc CheckBounds
+    LDA cam_dx
+    BEQ done
+    BMI negative
+  positive:
+    ;; Only time we care is when cam_x+1 is 1 short of the border and cam_x is within 8
+    LDA #<MAX_X_SCROLL
+    SEC
+    SBC cam_x
+    ROL r0 ;; Preserve the carry bit
+
+    ;; If the lo byte of max - current is > scroll_speed_max, we know its safe
+    CMP #MAX_X_SCROLL_SPEED
+    BPL done ;; TODO: replace with uglier BEQ continue, BCS DONE for <= logic
+    TAY ;; Hold onto the lo difference
+
+    LDA #>MAX_X_SCROLL
+    ROR r0 ;; To retrieve the carry
+    SBC cam_x+1
+
+    ;; If the hi byte of max - current is > 0, we know its safe
+    BNE done
+
+    ;; Finally, take the min of the lo difference and cam_dx
+    TYA
+    CMP cam_dx
+    BEQ done ;; If they're equal, just use cam_dx as is
+    BCS done ;; If there's plenty of space, just use cam_dx as is
+    STA cam_dx ;; Otherwise, set cam_dx to the difference
+  negative:
+    STA_TWOS_COMP cam_dx
+    ;; Only time we care is when cam_x+1 is 1 short of the border and cam_x is within 8
+    LDA #<MIN_X_SCROLL
+    CLC
+    ADC cam_x
+    ROL r0 ;; Preserve the carry bit
+
+    ;; If the lo byte of min + current is > scroll_speed_max, we know its safe
+    CMP #MAX_X_SCROLL_SPEED
+    BCS done_negative
+    TAY ;; Hold onto the lo difference
+
+    LDA #>MIN_X_SCROLL
+    ROR r0 ;; To retrieve the carry
+    ADC cam_x+1
+
+    ;; If the hi byte of min + current is > 0, we know its safe
+    BNE done_negative
+
+    ;; Finally, take the min of the lo sum and cam_dx
+    TYA
+    CMP cam_dx
+    BEQ done_negative ;; If they're equal, just use cam_dx as is
+    BCS done_negative ;; If there's plenty of space, just use cam_dx as is
+    STA cam_dx ;; Otherwise, set cam_dx to the difference
+  done_negative:
+    STA_TWOS_COMP cam_dx
+  done:
+.endproc
 
 ;;;; CoordsWorld2Mem
 ;; 2-byte stack frame: 2 arguments, 0 locals, 0 return
@@ -109,11 +172,13 @@ target_stored:
 
 .proc FillRightNameBuffer
   fetch:
+    ;; The rightmost buffer origin is 256 + 8 pixels right of camera, so add 8 to the low, 1 to the high byte
     LDA cam_x
+    CLC
+    ADC #$08  ;; 8 to the low
     PHA_SP
     LDA cam_x+1
-    CLC
-    ADC #$01 ;; The rightmost buffer origin is 256 pixels right of camera, so add 1 to the high byte
+    ADC #$01 ;; 1 to the high, plus carry if needed
     PHA_SP
     LDA #<name_table
     STA PLO
@@ -146,10 +211,11 @@ target_stored:
 .proc FillRightAttrBuffer
   fetch:
     LDA cam_x
+    CLC
+    ADC #$20 ;; The rightmost buffer origin is 256 pixels + 32px right of camera, so add 1 to the high byte, 32 to the low byte
     PHA_SP
     LDA cam_x+1
-    CLC
-    ADC #$01 ;; The rightmost buffer origin is 256 pixels right of camera, so add 1 to the high byte
+    ADC #$01 ;; The rightmost buffer origin is 256 pixels + 32px right of camera, so add 1 to the high byte, 32 to the low byte
     PHA_SP
     LDA #<attribute_table
     STA PLO
