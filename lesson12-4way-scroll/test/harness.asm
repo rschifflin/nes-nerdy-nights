@@ -11,9 +11,9 @@
 TEST_EXPECTED = $5000
 TEST_ACTUAL   = $6000
 
-TEST_COUNT_TOTAL         = $7FFC
-TEST_COUNT_CURRENT_FILE  = $7FFD
-TEST_CURRENT_FILE        = $7FFE
+TEST_COUNT_TOTAL_LO      = $7FFC
+TEST_COUNT_TOTAL_HI      = $7FFD
+TEST_RESERVED            = $7FFE ;; Dunno what to do with this yet
 TEST_SHOW                = $7FFF
 
 .include "../data/constants.asm"
@@ -91,32 +91,32 @@ strings:
     JMP TestClearLoop ;; tail call
 .endproc
 .macro TEST subroutine
-  INC TEST_COUNT_TOTAL
-  INC TEST_COUNT_CURRENT_FILE
+  LDA TEST_COUNT_TOTAL_LO
+  CLC
+  ADC #$01
+  STA TEST_COUNT_TOTAL_LO
+  LDA TEST_COUNT_TOTAL_HI
+  ADC #$00
+  STA TEST_COUNT_TOTAL_HI
   JSR TestClearExpectedValue
   JSR TestClearActualValue
   JSR subroutine
 .endmacro
 .macro SHOW
-  LDA TEST_COUNT_TOTAL
-  LDX TEST_CURRENT_FILE
-  LDY TEST_COUNT_CURRENT_FILE
+  LDA TEST_COUNT_TOTAL_LO
+  LDX TEST_COUNT_TOTAL_HI
+  LDY TEST_RESERVED
   INC TEST_SHOW
   DEC TEST_SHOW
 .endmacro
 
 run:
   LDA #$00
-  STA TEST_COUNT_TOTAL
-  STA TEST_COUNT_CURRENT_FILE
-  STA TEST_CURRENT_FILE
+  STA TEST_COUNT_TOTAL_LO
+  STA TEST_COUNT_TOTAL_HI
+  STA TEST_RESERVED
 
-  INC TEST_CURRENT_FILE
-  TEST XAtFloor ;; Test 1, File 1:1
-  TEST XWithSpace ;; Test 2, File 1:2
-
-  LDA $00
-  STA TEST_COUNT_CURRENT_FILE
-  INC TEST_CURRENT_FILE
-  TEST XAtFloor ;; Test 3, File 2:1
-  TEST XWithSpace ;; Test 4, File 2:2
+  TEST XAtFloor ;; Test 1
+  TEST XWithSpace ;; Test 2
+  TEST XAtFloor ;; Test 3
+  TEST XWithSpace ;; Test 4
