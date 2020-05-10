@@ -47,6 +47,7 @@ scroll_buffer_left_attr:   .res 8
 scroll_buffer_right_attr:  .res 8
 
 .segment "PRG1" ;; Fixed PRG ROM. Always present
+.include "lib/core.asm"    ;; 6502 basic utilities. Should always remain banked in
 .include "lib/nes.asm"    ;; System subroutines and macros. Should always remain banked in.
 .include "lib/stack.asm"  ;; Subroutines for software stack. Should always remain banked in.
 .include "lib/mmc1.asm"   ;; Subroutines specific to the MMC1 memory mapper. Should always remain banked in.

@@ -3,7 +3,6 @@
 ;; On the hardware stack, it points to the empty space of the _next_ value to be pushed.
 ;; Callee is responsible for pushing space for return value
 ;; Callee is responsible for popping the stack after
-
 .macro PHA_SP
   INC SP
   LDX SP

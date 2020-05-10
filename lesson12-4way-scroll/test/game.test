@@ -1,0 +1,17 @@
+memory load #0x8000 "out/test.bin"
+run init until #0x7FFF > 0x00
+registers show
+memory show #0x5000 1
+memory show #0x6000 1
+run until #0x7FFF > 0x00
+registers show
+memory show #0x5000 1
+memory show #0x6000 1
+run until #0x7FFF > 0x00
+registers show
+memory show #0x5000 1
+memory show #0x6000 1
+run until #0x7FFF > 0x00
+registers show
+memory show #0x5000 1
+memory show #0x6000 1
