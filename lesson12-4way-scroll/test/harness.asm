@@ -115,8 +115,5 @@ run:
   STA TEST_COUNT_TOTAL_LO
   STA TEST_COUNT_TOTAL_HI
   STA TEST_RESERVED
+  JSR RunTests
 
-  TEST XAtFloor ;; Test 1
-  TEST XWithSpace ;; Test 2
-  TEST XAtFloor ;; Test 3
-  TEST XWithSpace ;; Test 4

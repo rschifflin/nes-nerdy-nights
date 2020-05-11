@@ -1,39 +1,47 @@
 # Test 0
 NAME
-MyTestName
+Bounds Check: Delta would underflow 0
 
 DESCRIPTION
-This is my test description
+Given a lower limit of 0,
+and a current position near 0,
+and a delta that would underflow below 0,
+Expects delta to be adjusted to just meet 0
 
 ROWS
 1
 
 # Test 1
 NAME
-This is my other test name
+Bounds Check: Delta would overflow 0x300
 
 DESCRIPTION
-this is my second test description
+Given an upper limit of 0x300
+and a current position near 0x300
+and a delta that would overflow 0x300,
+expect delta to be adjusted to just meet 0
 
 ROWS
 1
 
 # Test 2
 NAME
-This is my other test name
+Bounds check: Negative delta without underflow
 
 DESCRIPTION
-this is my third test description
+With a negative delta not in danger of underflowing 0
+It makes no changes to the delta
 
 ROWS
 1
 
 # Test 3
 NAME
-This is my other test name
+Bounds check: Positive delta with overflow
 
 DESCRIPTION
-this is my fourth test description
+With a positive delta not in danger of overflowing 0x300
+It makes no changes to the delta
 
 ROWS
 1
