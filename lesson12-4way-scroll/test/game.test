@@ -1,17 +1,39 @@
-memory load #0x8000 "out/test.bin"
-run init until #0x7FFF > 0x00
-registers show
-memory show #0x5000 1
-memory show #0x6000 1
-run until #0x7FFF > 0x00
-registers show
-memory show #0x5000 1
-memory show #0x6000 1
-run until #0x7FFF > 0x00
-registers show
-memory show #0x5000 1
-memory show #0x6000 1
-run until #0x7FFF > 0x00
-registers show
-memory show #0x5000 1
-memory show #0x6000 1
+# Test 0
+NAME
+MyTestName
+
+DESCRIPTION
+This is my test description
+
+ROWS
+1
+
+# Test 1
+NAME
+This is my other test name
+
+DESCRIPTION
+this is my second test description
+
+ROWS
+1
+
+# Test 2
+NAME
+This is my other test name
+
+DESCRIPTION
+this is my third test description
+
+ROWS
+1
+
+# Test 3
+NAME
+This is my other test name
+
+DESCRIPTION
+this is my fourth test description
+
+ROWS
+1
