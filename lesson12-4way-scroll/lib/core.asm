@@ -12,9 +12,13 @@
   PHA ;; Push ptrHi
   LDA r0
   PHA ;; Push r0
+  LDA r1
+  PHA ;; Push r1
 .endmacro
 
 .macro POP_IRQ
+  PLA ;; Pull r1
+  STA r1
   PLA ;; Pull r0
   STA r0
   PLA ;; Pull ptrHi
@@ -38,6 +42,15 @@
   STA mem_loc
 .endmacro
 
+.macro INC16 mem_loc
+.scope
+    INC mem_loc
+    BNE no_carry
+    INC mem_loc+1
+  no_carry:
+.endscope
+.endmacro
+
 ;;;; AdcDec
 ;; 0-byte stack frame: 0 args, 0 return
 ;; Acts like ADC but only operates on two decimal bytes guaranteed to be between 0-9.
@@ -59,4 +72,3 @@
     RTS
 .endproc
 ;;;;
-

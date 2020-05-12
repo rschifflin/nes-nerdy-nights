@@ -242,6 +242,147 @@ target_stored:
     RTS
 .endproc
 
+;;;; FillNameColumn
+;; 8-byte stack: 8 args, 0 return
+;; pageN: Page # to write from
+;; offsetX: Within pageN, number of x-bytes offset from 0 to start from
+;; offsetY: Within pageN, number of y-bytes offset from 0 to start from
+;; srcLo: Lo byte of buffer to write from
+;; srcHi: Hi byte of buffer to write from
+;; targetLo: Lo byte of buffer to write to
+;; targetHi: Hi byte of buffer to write to
+;; targetLen: Number of buffer bytes to write
+.proc FillColumnNamePage
+    pageN     =     SW_STACK-7
+    offsetX   =     SW_STACK-6
+    offsetY   =     SW_STACK-5
+    srcLo     =     SW_STACK-4
+    srcHi     =     SW_STACK-3
+    targetLo  =     SW_STACK-2
+    targetHi  =     SW_STACK-1
+    targetLen =     SW_STACK
+
+    offsetYBottom  = SW_STACK-5 ;; Gets repurposed after offsetY is used to calculate plo/phi
+
+    ;; If targetLen is 0, early return
+    LDX SP
+    LDA targetLen,X
+    BNE @nonzero_len
+    RTS
+  @nonzero_len:
+    LDA srcLo,X
+    STA PLO
+    LDA srcHi,X
+    STA PHI
+
+    ;; Adjusts P by pagen/offsetx/offsety
+  page_row:
+    LDY SP
+    LDX pageN,Y ;; Assuming pages are 3x3 row major, find byte offset of topleft of page n, starting at P
+  @loop:
+    CPX #$03
+    BCC page_col ;; < 3
+    TXA
+    SBC #$03 ;; the CPX above lets us know the carry is set; otherwise the BCC instruction would have branched past us
+    TAX
+    CLC
+    LDA #<$0b40 ;; Add 960*3 to P
+    ADC PLO
+    STA PLO
+    LDA #>$0b40
+    ADC PHI
+    STA PHI
+    JMP @loop
+  page_col:
+    CPX #$00
+  @loop:
+    BEQ byte_row
+    CLC
+    LDA #<$03c0 ;; Add 960 to P
+    ADC PLO
+    STA PLO
+    LDA #>$03c0
+    ADC PHI
+    STA PHI
+    DEX
+    JMP @loop
+  byte_row:
+    LDX offsetY,Y ;; Pages are 32x30 bytes, row major
+  @loop:
+    BEQ byte_col
+    CLC
+    LDA #$20 ;; Add 32 to P
+    ADC PLO
+    STA PLO
+    LDA #$00
+    ADC PHI
+    STA PHI
+    DEX
+    JMP @loop
+  byte_col:
+    LDX SP
+    LDA offsetX,X
+    CLC
+    ADC PLO
+    STA PLO
+    LDA #$00
+    ADC PHI
+    STA PHI
+
+    LDX SP
+    LDA targetLo,X
+    STA r0
+    LDA targetHi,X
+    STA r1
+
+    LDA #$1E ;; 30 Column bytes per page
+    SEC
+    SBC offsetY, X          ;; Column bytes skipped this page
+    STA offsetYBottom, X ;; New value of offsetY, offset from the bottom now instead of the top
+
+    LDX SP
+    LDY #$00
+  loop:
+    LDA (PLO),Y
+    STA (r0),Y
+    INC16 r0
+
+    ;; Add offset amount to P
+    LDA PLO
+    CLC
+    ADC #$20 ;; 32 bytes to next column
+    STA PLO
+    LDA PHI ;; TODO: Is it faster to BCS and INC versus always loading and adding 0
+    ADC #$00
+    STA PHI
+
+    ;; Increment target for tail call
+    LDA targetLo,X
+    CLC
+    ADC #$01
+    STA targetLo,X
+    LDA targetHi,X
+    ADC #$00
+    STA targetHi,X
+
+    DEC targetLen,X
+    BEQ done ;; All bytes written
+    DEC offsetYBottom,X
+    BNE loop ;; Len is not 0 and page boundary not reached, loop
+
+    ;; Else, we recursively call into the next vertical page
+    ;; Modify PageN to be next vertical page
+    LDA pageN,X
+    ADC #$04 ;; 3 horizontal pages between each column
+    STA pageN,X
+    ;; Modify target to be next n bytes over
+    ;; Notice the stack frame- pageN, targetHi, targetLo, targetLen, offsetY are all correct for the next call
+    JMP FillColumnNamePage ;; Tail call: JMP (not jsr) FillColumnNamePage
+  done:
+    RTS
+.endproc
+;;;;
+
 .proc FillLeftNameBuffer
     LDA cam_x
     SEC

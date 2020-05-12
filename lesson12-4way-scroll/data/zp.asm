@@ -6,6 +6,7 @@ PLO:           .res 1 ; pointer reg used for indirection
 PHI:           .res 1 ; pointer reg used for indirection
 ;;
 r0:            .res 1 ; Simple re-usable byte register
+r1:            .res 1 ; Simple re-usable byte register
 ;;;;
 
 ;;;; Global system variables.

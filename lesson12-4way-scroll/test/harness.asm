@@ -8,6 +8,8 @@
 ;;   Run
 ;;   Fill the actual buffer with return values
 ;;   Call the SHOW macro
+;; The testrunner assumes test output is printed when 0x7fff becomes 1
+;; The testrunner assumes a program breakpoint is hit when 0x7fff becomes 2
 TEST_EXPECTED = $5000
 TEST_ACTUAL   = $6000
 
@@ -108,6 +110,12 @@ strings:
   LDY TEST_RESERVED
   INC TEST_SHOW
   DEC TEST_SHOW
+.endmacro
+.macro BREAKPOINT
+  LDA #$02
+  LDX #$00
+  STA TEST_SHOW
+  STX TEST_SHOW
 .endmacro
 
 run:

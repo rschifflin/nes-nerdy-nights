@@ -1,47 +1,68 @@
 # Test 0
 NAME
-Bounds Check: Delta would underflow 0
+  Bounds Check: Delta would underflow 0
 
 DESCRIPTION
-Given a lower limit of 0,
-and a current position near 0,
-and a delta that would underflow below 0,
-Expects delta to be adjusted to just meet 0
+  Given a lower limit of 0,
+  and a current position near 0,
+  and a delta that would underflow below 0,
+  Expects delta to be adjusted to just meet 0
 
 ROWS
-1
+  1
 
 # Test 1
 NAME
-Bounds Check: Delta would overflow 0x300
+  Bounds Check: Delta would overflow 0x300
 
 DESCRIPTION
-Given an upper limit of 0x300
-and a current position near 0x300
-and a delta that would overflow 0x300,
-expect delta to be adjusted to just meet 0
+  Given an upper limit of 0x300
+  and a current position near 0x300
+  and a delta that would overflow 0x300,
+  expect delta to be adjusted to just meet 0
 
 ROWS
-1
+  1
 
 # Test 2
 NAME
-Bounds check: Negative delta without underflow
+  Bounds check: Negative delta without underflow
 
 DESCRIPTION
-With a negative delta not in danger of underflowing 0
-It makes no changes to the delta
+  With a negative delta not in danger of underflowing 0
+  It makes no changes to the delta
 
 ROWS
-1
+  1
 
 # Test 3
 NAME
-Bounds check: Positive delta with overflow
+  Bounds check: Positive delta with overflow
 
 DESCRIPTION
-With a positive delta not in danger of overflowing 0x300
-It makes no changes to the delta
+  With a positive delta not in danger of overflowing 0x300
+  It makes no changes to the delta
 
 ROWS
-1
+  1
+
+# Test 4
+NAME
+  Fill column name page from 0
+
+DESCRIPTION
+  When given page 0, offset x/y 0, FillColumnNamePage should just give the first column of the lattice nametable data.
+
+ROWS
+  2 # 30 tiles high, 1 byte per tile, 16 bytes per test row
+
+# Test 5
+NAME
+  Fill column name page from 0, offset-x 7, offset-y 4
+
+DESCRIPTION
+  When given page 0, offset-x 7, offset-y 4, FillColumnNamePage should just give the properly adjusted, page-spanning column
+
+
+ROWS
+  2 # 30 tiles high, 1 byte per tile, 16 bytes per test row
