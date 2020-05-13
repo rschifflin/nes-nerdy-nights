@@ -43,6 +43,16 @@ Rows
 ##
 
 #### Test 4
+NAME
+  Convert world coordinates to name coordinates
+DESCRIPTION
+  Converts world coordinate (1301, 992) in pixels to the page ref of a nametable
+  with 6x5 pages
+ROWS
+  1
+##
+
+#### Test 5
 Name
   Fill column name page from 0
 Description
@@ -51,7 +61,7 @@ Rows
   2 # 30 tiles high, 1 byte per tile, 16 bytes per test row
 ##
 
-#### Test 5
+#### Test 6
 Name
   Fill column name page from 0, offset-x 7, offset-y 4
 Description
@@ -60,7 +70,7 @@ Rows
   2 # 30 tiles high, 1 byte per tile, 16 bytes per test row
 ##
 
-#### Test 6
+#### Test 7
 Name
   Fill column name page from 3, offset-x 31, offset-y 31
 Description
@@ -69,7 +79,7 @@ Rows
   2 # 30 tiles high, 1 byte per tile, 16 bytes per test row
 ##
 
-#### Test 7
+#### Test 8
 Name
   Fill column name page from 2, offset-x 0, offset-y 0
 Description
@@ -79,21 +89,56 @@ Rows
   2 # 30 tiles high, 1 byte per tile, 16 bytes per test row
 ##
 
-#### Test 8
-NAME
-  Convert world coordinates to name coordinates
-DESCRIPTION
-  Converts world coordinate (1301, 992) in pixels to the page ref of a nametable
-  with 6x5 pages
-ROWS
-  1
-##
-#
 #### Test 9
 NAME
   Fill column name page from 2 using world coordinates
 DESCRIPTION
-  Converts world coordinate (257, 0) in pixels to the page ref of a nametable and loads it as a column
+  Converts world coordinate (264, 0) in pixels to the page ref of a nametable and loads it as a column
 ROWS
   2
 ##
+
+##### Test 10
+Name
+  Fill row name page from 0
+Description
+  When given page 0, offset x/y 0, FillRowNamePage should just give the first row of the lattice nametable data.
+Rows
+  2 # 30 tiles high, 1 byte per tile, 16 bytes per test row
+##
+
+#### Test 11
+Name
+  Fill row name page from 0, offset-x 7, offset-y 4
+Description
+  When given page 0, offset-x 7, offset-y 4, FillRowNamePage should just give the properly adjusted, page-spanning row
+Rows
+  2 # 30 tiles high, 1 byte per tile, 16 bytes per test row
+##
+
+#### Test 12
+Name
+  Fill row name page from 3, offset-x 31, offset-y 31
+Description
+  When given page 3, offset-x 31, offset-y 29, FillRowNamePage should just give the properly adjusted, page-spanning row
+Rows
+  2 # 30 tiles high, 1 byte per tile, 16 bytes per test row
+##
+
+#### Test 13
+Name
+  Fill row name page from 2, offset-x 0, offset-y 0
+Description
+  When given page 2, where page is all 1s and page 2 is all 2s,
+  Should pull a row of all 2s
+Rows
+  2 # 30 tiles high, 1 byte per tile, 16 bytes per test row
+##
+
+#### Test 14
+NAME
+  Fill row name page from 2 using world coordinates
+DESCRIPTION
+  Converts world coordinate (256, 0) in pixels to the page ref of a nametable and loads it as a row
+ROWS
+  2

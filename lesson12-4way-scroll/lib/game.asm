@@ -213,6 +213,8 @@ MIN_X_SCROLL_SPEED = $01
     PHA_SP ;; name table byte is 8 pixels tall
     PHN_SP 3 ;; Add space for ret vals
     JSR CoordsWorld2Page
+    PHN_SP 2 ;; Add space for ret vals
+    JSR GetBytePtrFromPage
     LDA #<scroll_buffer_right_name
     PHA_SP
     LDA #>scroll_buffer_right_name
@@ -220,7 +222,7 @@ MIN_X_SCROLL_SPEED = $01
     LDA #$1E ;; scroll buffer len is 30 bytes
     PHA_SP
     JSR FillColumnFromPage
-    PLN_SP 12 ;; Pop all
+    PLN_SP 14 ;; Pop all
     RTS
 .endproc
 
@@ -241,6 +243,8 @@ MIN_X_SCROLL_SPEED = $01
     PHA_SP ;; attr table byte is 32 pixels tall
     PHN_SP 3 ;; Add space for ret vals
     JSR CoordsWorld2Page
+    PHN_SP 2 ;; Add space for ret vals
+    JSR GetBytePtrFromPage
     LDA #<scroll_buffer_right_attr
     PHA_SP
     LDA #>scroll_buffer_right_attr
@@ -248,7 +252,7 @@ MIN_X_SCROLL_SPEED = $01
     LDA #$08 ;; scroll buffer len is 8 bytes
     PHA_SP
     JSR FillColumnFromPage
-    PLN_SP 12 ;; Pop all
+    PLN_SP 14 ;; Pop all
     RTS
 .endproc
 
@@ -269,6 +273,8 @@ MIN_X_SCROLL_SPEED = $01
     PHA_SP ;; name table byte is 8 pixels tall
     PHN_SP 3 ;; Add space for ret vals
     JSR CoordsWorld2Page
+    PHN_SP 2 ;; Add space for ret vals
+    JSR GetBytePtrFromPage
     LDA #<scroll_buffer_left_name
     PHA_SP
     LDA #>scroll_buffer_left_name
@@ -276,7 +282,7 @@ MIN_X_SCROLL_SPEED = $01
     LDA #$1E ;; scroll buffer len is 30 bytes
     PHA_SP
     JSR FillColumnFromPage
-    PLN_SP 12 ;; Pop all
+    PLN_SP 14 ;; Pop all
     RTS
 .endproc
 
@@ -297,6 +303,8 @@ MIN_X_SCROLL_SPEED = $01
     PHA_SP ;; attr table byte is 32 pixels tall
     PHN_SP 3 ;; Add space for ret vals
     JSR CoordsWorld2Page
+    PHN_SP 2 ;; Add space for ret vals
+    JSR GetBytePtrFromPage
     LDA #<scroll_buffer_left_attr
     PHA_SP
     LDA #>scroll_buffer_left_attr
@@ -304,31 +312,23 @@ MIN_X_SCROLL_SPEED = $01
     LDA #$08 ;; scroll buffer len is 8 bytes
     PHA_SP
     JSR FillColumnFromPage
-    PLN_SP 12 ;; Pop all
+    PLN_SP 14 ;; Pop all
     RTS
 .endproc
 
-;;;; FillColumnFromPage
-;; 6-byte stack: 6 args, 0 return
-;; pageN: Page # to write from
-;; offsetX: Within pageN, number of x-bytes offset from 0 to start from
-;; offsetY: Within pageN, number of y-bytes offset from 0 to start from
-;; targetLo: Lo byte of buffer to write to
-;; targetHi: Hi byte of buffer to write to
-;; targetLen: Number of buffer bytes to write
-.proc FillColumnFromPage
-  ;; Variables from stack
-    pageN     =     SW_STACK-5
-    offsetX   =     SW_STACK-4
-    offsetY   =     SW_STACK-3
-    targetLo  =     SW_STACK-2
-    targetHi  =     SW_STACK-1
-    targetLen =     SW_STACK
+;;;; GetBytePtrFromPage
+;; 5-byte stack: 3 args, 2 return
+.proc GetBytePtrFromPage
+  ;; Stack frame
+    pageN     =     SW_STACK-4
+    offsetX   =     SW_STACK-3
+    offsetY   =     SW_STACK-2
+    targetLo  =     SW_STACK-1
+    targetHi  =     SW_STACK
 
   ;; Variables from mem
     spanWidth           = PageTable::span_width + page_table
     widthBytes          = PageTable::width_bytes + page_table
-    heightBytes         = PageTable::height_bytes + page_table
     pageBytesLo         = PageTable::page_bytes + page_table
     pageBytesHi         = PageTable::page_bytes+1 + page_table
     spanWidthBytesLo    = PageTable::span_width_bytes + page_table
@@ -336,14 +336,6 @@ MIN_X_SCROLL_SPEED = $01
     srcLo               = PageTable::start_byte + page_table
     srcHi               = PageTable::start_byte+1 + page_table
 
-    offsetYBottom       = offsetY ;; Gets repurposed after offsetY is used to calculate plo/phi
-
-    ;; If targetLen is 0, early return
-    LDX SP
-    LDA targetLen,X
-    BNE @nonzero_len
-    RTS
-  @nonzero_len:
     LDA srcLo
     STA PLO
     LDA srcHi
@@ -381,7 +373,7 @@ MIN_X_SCROLL_SPEED = $01
     DEX
     JMP @loop
   byte_row:
-    LDX offsetY,Y ;; Pages are 32x30 bytes, row major
+    LDX offsetY,Y ;; Pages are row major
   @loop:
     BEQ byte_col ;; Branch when we're on the correct byte row
     CLC
@@ -401,6 +393,55 @@ MIN_X_SCROLL_SPEED = $01
     STA PLO
     LDA #$00
     ADC PHI
+    STA PHI
+
+    LDX SP
+    LDA PLO
+    STA targetLo,X
+    LDA PHI
+    STA targetHi,X
+    RTS
+.endproc
+
+;;;; FillColumnFromPage
+;; 8-byte stack: 8 args, 0 return
+;; pageN: Current page holding the byte to start from
+;; offsetX: Within current page, number of x-bytes offset from 0 to start from
+;; offsetY: Within current page, number of y-bytes offset from 0 to start from
+;; srcLo: Lo byte of buffer to write from
+;; srcHi: Hi byte of buffer to write from
+;; targetLo: Lo byte of buffer to write to
+;; targetHi: Hi byte of buffer to write to
+;; targetLen: Number of buffer bytes to write
+.proc FillColumnFromPage
+  ;; Variables from stack
+    pageN     =     SW_STACK-7
+    offsetX   =     SW_STACK-6
+    offsetY   =     SW_STACK-5
+    srcLo     =     SW_STACK-4
+    srcHi     =     SW_STACK-3
+    targetLo  =     SW_STACK-2
+    targetHi  =     SW_STACK-1
+    targetLen =     SW_STACK
+
+  ;; Variables from mem
+    spanWidth           = PageTable::span_width + page_table
+    widthBytes          = PageTable::width_bytes + page_table
+    heightBytes         = PageTable::height_bytes + page_table
+    spanWidthBytesLo    = PageTable::span_width_bytes + page_table
+    spanWidthBytesHi    = PageTable::span_width_bytes+1 + page_table
+
+    offsetYBottom       = offsetY ;; Gets repurposed after offsetY is used to calculate plo/phi
+
+    ;; If targetLen is 0, early return
+    LDX SP
+    LDA targetLen,X
+    BNE @nonzero_len
+    RTS
+  @nonzero_len:
+    LDA srcLo,X
+    STA PLO
+    LDA srcHi,X
     STA PHI
 
     LDX SP
@@ -431,13 +472,7 @@ MIN_X_SCROLL_SPEED = $01
     STA PHI
 
     ;; Increment target for tail call
-    LDA targetLo,X
-    CLC
-    ADC #$01
-    STA targetLo,X
-    LDA targetHi,X
-    ADC #$00
-    STA targetHi,X
+    INC16_X targetLo
 
     DEC targetLen,X
     BEQ done ;; All bytes written
@@ -445,13 +480,117 @@ MIN_X_SCROLL_SPEED = $01
     BNE loop ;; Len is not 0 and page boundary not reached, loop
 
     ;; Else, we recursively call into the next vertical page
-    ;; Modify PageN to be next vertical page
     LDA pageN,X
     ADC spanWidth
     STA pageN,X
-    ;; Modify target to be next n bytes over
-    ;; Notice the stack frame- pageN, targetHi, targetLo, targetLen, offsetY are all correct for the next call
+
+    ;; Protect targetLen, targetHi, targetLo
+    PLA_SP
+    PHA
+    PLA_SP
+    PHA
+    PLA_SP
+    PHA
+    ;; Stack frame is perfect to calculate next srclo/srcHi
+    JSR GetBytePtrFromPage
+    ;; Restore targetLen, targetHi, targetLo
+    PLA
+    PHA_SP
+    PLA
+    PHA_SP
+    PLA
+    PHA_SP
+
+    ;; Notice the stack frame- pageN, offsetY, srcLo, srcHi, targetLo, targetHi, targetLen are all correct for the next call
     JMP FillColumnFromPage ;; Tail call: JMP (not jsr) FillColumnFromPage
+  done:
+    RTS
+.endproc
+;;;;
+
+;;;; FillRowFromPage
+;; 7-byte stack: 7 args, 0 return
+;; pageN: Current page holding the byte to start from
+;; offsetX: Within pageN, number of x-bytes offset from 0 to start from
+;; offsetY: Within pageN, number of y-bytes offset from 0 to start from
+;; srcLo: Lo byte of buffer to write from
+;; srcHi: Hi byte of buffer to write from
+;; targetLo: Lo byte of buffer to write to
+;; targetHi: Hi byte of buffer to write to
+;; targetLen: Number of buffer bytes to write
+.proc FillRowFromPage
+  ;; Variables from stack
+    pageN     =     SW_STACK-7
+    offsetX   =     SW_STACK-6
+    offsetY   =     SW_STACK-5
+    srcLo     =     SW_STACK-4
+    srcHi     =     SW_STACK-3
+    targetLo  =     SW_STACK-2
+    targetHi  =     SW_STACK-1
+    targetLen =     SW_STACK
+
+  ;; Variables from mem
+    spanWidth           = PageTable::span_width + page_table
+    widthBytes          = PageTable::width_bytes + page_table
+    heightBytes         = PageTable::height_bytes + page_table
+    pageBytesLo         = PageTable::page_bytes + page_table
+    pageBytesHi         = PageTable::page_bytes+1 + page_table
+
+    offsetXRight        = offsetX ;; Gets repurposed after offsetX is used to calculate plo/phi
+
+    ;; If targetLen is 0, early return
+    LDX SP
+    LDA targetLen,X
+    BNE @nonzero_len
+    RTS
+  @nonzero_len:
+    LDX SP
+    LDA targetLo,X
+    STA r0
+    LDA targetHi,X
+    STA r1
+
+    LDA widthBytes
+    SEC
+    SBC offsetX, X      ;; Row bytes skipped this page
+    STA offsetXRight, X ;; New value of offsetX, offset from the right now instead of the left
+
+    LDX SP
+    LDY #$00
+  loop:
+    LDA (PLO),Y
+    STA (r0),Y
+    INC16 r0
+    INC16 PLO
+    INC16_X targetLo
+
+    DEC targetLen,X
+    BEQ done ;; All bytes written
+    DEC offsetXRight,X
+    BNE loop ;; Len is not 0 and page boundary not reached, loop
+
+    ;; Else, we recursively call into the next horizontal page
+    INC pageN,X
+
+    ;; Protect targetLen, targetHi, targetLo
+    PLA_SP
+    PHA
+    PLA_SP
+    PHA
+    PLA_SP
+    PHA
+    ;; Stack frame is perfect to calculate next srclo/srcHi
+    JSR GetBytePtrFromPage
+    ;; Restore targetLen, targetHi, targetLo
+    PLA
+    PHA_SP
+    PLA
+    PHA_SP
+    PLA
+    PHA_SP
+
+    ;; Notice the stack frame- pageN, offsetX, srcLo, srcHi, targetLo, targetHi, targetLen are all correct for the next call
+    JMP FillRowFromPage ;; Tail call: JMP (not jsr) FillRowFromPage
   done:
     RTS
 .endproc

@@ -6,3 +6,8 @@ scroll_buffer_left_name:   .res 30
 scroll_buffer_right_name:  .res 30
 scroll_buffer_left_attr:   .res 8
 scroll_buffer_right_attr:  .res 8
+
+scroll_buffer_top_name:   .res 33
+scroll_buffer_bottom_name:  .res 33
+scroll_buffer_top_attr:   .res 9
+scroll_buffer_bottom_attr:  .res 9

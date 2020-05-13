@@ -51,6 +51,15 @@
 .endscope
 .endmacro
 
+.macro INC16_X mem_loc
+.scope
+    INC mem_loc,X
+    BNE no_carry
+    INC mem_loc+1,X
+  no_carry:
+.endscope
+.endmacro
+
 ;;;; AdcDec
 ;; 0-byte stack frame: 0 args, 0 return
 ;; Acts like ADC but only operates on two decimal bytes guaranteed to be between 0-9.

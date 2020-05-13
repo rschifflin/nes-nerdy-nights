@@ -133,172 +133,6 @@ empty_nametable_header:
   RTS
 .endproc
 
-.proc FillColumnFromLattice
-  ;; Expected: buffer is filled with a 30 value column from the topleft of the lattice
-    LDX #$00
-    .repeat 30, N
-      LDA lattice+(N*32)
-      STA TEST_EXPECTED,X
-      INX
-    .endrepeat
-
-    ;; set up page table
-    LDA #<lattice_header
-    STA PLO
-    LDA #>lattice_header
-    STA PHI
-    JSR LoadPageTable
-
-    LDA #$00
-    PHA_SP ;; pageN
-    PHA_SP ;; offsetX
-    PHA_SP ;; offsetY
-    LDA #<TEST_ACTUAL
-    PHA_SP ;; targetLo
-    LDA #>TEST_ACTUAL
-    PHA_SP ;; targetHi
-    LDA #$1E ;; 30 bytes
-    PHA_SP ;; targetLen
-
-    JSR FillColumnFromPage
-    PLN_SP 6
-
-    SHOW
-    RTS
-.endproc
-
-.proc FillColumnFromPageFromXYOffset
-  ;; Expected: buffer is filled with a 30 value column from the topleft of the lattice
-    JMP after_data
-    expected_data:
-      .byte $47, $57, $67, $77, $87, $97, $A7, $B7
-      .byte $C7, $D7, $E7, $F7, $07, $17, $27, $37
-      .byte $47, $57, $67, $77, $87, $97, $A7, $B7
-      .byte $C7, $D7, $07, $17, $27, $37
-    after_data:
-    LDX #$00
-    loop:
-      LDA expected_data,X
-      STA TEST_EXPECTED,X
-      INX
-      CPX #$1E
-      BNE loop
-
-    ;; set up page table
-    LDA #<lattice_header
-    STA PLO
-    LDA #>lattice_header
-    STA PHI
-    JSR LoadPageTable
-
-    LDA #$00
-    PHA_SP ;; pageN
-    LDA #$07
-    PHA_SP ;; offsetX
-    LDA #$04
-    PHA_SP ;; offsetY
-    LDA #<TEST_ACTUAL
-    PHA_SP ;; targetLo
-    LDA #>TEST_ACTUAL
-    PHA_SP ;; targetHi
-    LDA #$1E ;; 30 bytes
-    PHA_SP ;; targetLen
-
-    JSR FillColumnFromPage
-    PLN_SP 6
-
-    SHOW
-    RTS
-.endproc
-
-.proc FillColumnFromPageFromCorner
-  ;; Expected: buffer is filled with a 30 value column from the bottom-right of the lattice
-    JMP after_data
-    expected_data:
-      .byte $DF, $0F, $1F, $2F, $3F, $4F, $5F, $6F
-      .byte $7F, $8F, $9F, $AF, $BF, $CF, $DF, $EF
-      .byte $FF, $0F, $1F, $2F, $3F, $4F, $5F, $6F
-      .byte $7F, $8F, $9F, $AF, $BF, $CF
-    after_data:
-    LDX #$00
-    loop:
-      LDA expected_data,X
-      STA TEST_EXPECTED,X
-      INX
-      CPX #$1E
-      BNE loop
-
-    ;; set up page table
-    LDA #<lattice_header
-    STA PLO
-    LDA #>lattice_header
-    STA PHI
-    JSR LoadPageTable
-
-    LDA #$03
-    PHA_SP ;; pageN
-    LDA #$1F
-    PHA_SP ;; offsetX - 31
-    LDA #$1D
-    PHA_SP ;; offsetY - 29
-    LDA #<TEST_ACTUAL
-    PHA_SP ;; targetLo
-    LDA #>TEST_ACTUAL
-    PHA_SP ;; targetHi
-    LDA #$1E ;; 30 bytes
-    PHA_SP ;; targetLen
-
-    JSR FillColumnFromPage
-    PLN_SP 6
-
-    SHOW
-    RTS
-.endproc
-
-.proc FillColumnFromPage2
-  ;; Expected: buffer is filled with a 30 value column of all 2s
-    JMP after_data
-    expected_data:
-      .repeat 30
-        .byte $02
-      .endrepeat
-    after_data:
-
-    LDX #$00
-    loop:
-      LDA expected_data,X
-      STA TEST_EXPECTED,X
-      INX
-      CPX #$1E
-      BNE loop
-
-    ;; set up page table
-    LDA #<integer_nametable_header
-    STA PLO
-    LDA #>integer_nametable_header
-    STA PHI
-    JSR LoadPageTable
-
-    LDA #$01
-    PHA_SP ;; pageN
-    LDA #$00
-    PHA_SP ;; offsetX 0
-    PHA_SP ;; offsetY 0
-    LDA #<TEST_ACTUAL
-    PHA_SP ;; targetLo
-    LDA #>TEST_ACTUAL
-    PHA_SP ;; targetHi
-    LDA #$1E ;; 30 bytes
-    PHA_SP ;; targetLen
-
-    JSR FillColumnFromPage
-    PLN_SP 6
-
-    SHOW
-    RTS
-.endproc
-
-
 .proc CheckWorldCoordinatesToName
     ;; set up page table: 6x5 nametables
     LDA #<empty_nametable_header
@@ -340,6 +174,180 @@ empty_nametable_header:
     RTS
 .endproc
 
+;; FillColumnFromPage tests start here
+.proc FillColumnFromLattice
+  ;; Expected: buffer is filled with a 30 value column from the topleft of the lattice
+    LDX #$00
+    .repeat 30, N
+      LDA lattice+(N*32)
+      STA TEST_EXPECTED,X
+      INX
+    .endrepeat
+
+    ;; set up page table
+    LDA #<lattice_header
+    STA PLO
+    LDA #>lattice_header
+    STA PHI
+    JSR LoadPageTable
+
+    LDA #$00
+    PHA_SP ;; pageN
+    PHA_SP ;; offsetX
+    PHA_SP ;; offsetY
+    PHN_SP 2 ;; Add space for retvals
+    JSR GetBytePtrFromPage
+    LDA #<TEST_ACTUAL
+    PHA_SP ;; targetLo
+    LDA #>TEST_ACTUAL
+    PHA_SP ;; targetHi
+    LDA #$1E ;; 30 bytes
+    PHA_SP ;; targetLen
+
+    JSR FillColumnFromPage
+    PLN_SP 8
+
+    SHOW
+    RTS
+.endproc
+
+.proc FillColumnFromPageFromXYOffset
+  ;; Expected: buffer is filled with a 30 value column from the topleft of the lattice
+    JMP after_data
+    expected_data:
+      .byte $47, $57, $67, $77, $87, $97, $A7, $B7
+      .byte $C7, $D7, $E7, $F7, $07, $17, $27, $37
+      .byte $47, $57, $67, $77, $87, $97, $A7, $B7
+      .byte $C7, $D7, $07, $17, $27, $37
+    after_data:
+    LDX #$00
+    loop:
+      LDA expected_data,X
+      STA TEST_EXPECTED,X
+      INX
+      CPX #$1E
+      BNE loop
+
+    ;; set up page table
+    LDA #<lattice_header
+    STA PLO
+    LDA #>lattice_header
+    STA PHI
+    JSR LoadPageTable
+
+    LDA #$00
+    PHA_SP ;; pageN
+    LDA #$07
+    PHA_SP ;; offsetX
+    LDA #$04
+    PHA_SP ;; offsetY
+    PHN_SP 2 ;; Add space for retvals
+    JSR GetBytePtrFromPage
+    LDA #<TEST_ACTUAL
+    PHA_SP ;; targetLo
+    LDA #>TEST_ACTUAL
+    PHA_SP ;; targetHi
+    LDA #$1E ;; 30 bytes
+    PHA_SP ;; targetLen
+
+    JSR FillColumnFromPage
+    PLN_SP 8
+
+    SHOW
+    RTS
+.endproc
+
+.proc FillColumnFromPageFromCorner
+  ;; Expected: buffer is filled with a 30 value column from the bottom-right of the lattice
+    JMP after_data
+    expected_data:
+      .byte $DF, $0F, $1F, $2F, $3F, $4F, $5F, $6F
+      .byte $7F, $8F, $9F, $AF, $BF, $CF, $DF, $EF
+      .byte $FF, $0F, $1F, $2F, $3F, $4F, $5F, $6F
+      .byte $7F, $8F, $9F, $AF, $BF, $CF
+    after_data:
+    LDX #$00
+    loop:
+      LDA expected_data,X
+      STA TEST_EXPECTED,X
+      INX
+      CPX #$1E
+      BNE loop
+
+    ;; set up page table
+    LDA #<lattice_header
+    STA PLO
+    LDA #>lattice_header
+    STA PHI
+    JSR LoadPageTable
+
+    LDA #$03
+    PHA_SP ;; pageN
+    LDA #$1F
+    PHA_SP ;; offsetX - 31
+    LDA #$1D
+    PHA_SP ;; offsetY - 29
+    PHN_SP 2 ;; Add space for retvals
+    JSR GetBytePtrFromPage
+    LDA #<TEST_ACTUAL
+    PHA_SP ;; targetLo
+    LDA #>TEST_ACTUAL
+    PHA_SP ;; targetHi
+    LDA #$1E ;; 30 bytes
+    PHA_SP ;; targetLen
+
+    JSR FillColumnFromPage
+    PLN_SP 8
+
+    SHOW
+    RTS
+.endproc
+
+.proc FillColumnFromPage2
+  ;; Expected: buffer is filled with a 30 value column of all 2s
+    JMP after_data
+    expected_data:
+      .repeat 30
+        .byte $02
+      .endrepeat
+    after_data:
+
+    LDX #$00
+    loop:
+      LDA expected_data,X
+      STA TEST_EXPECTED,X
+      INX
+      CPX #$1E
+      BNE loop
+
+    ;; set up page table
+    LDA #<integer_nametable_header
+    STA PLO
+    LDA #>integer_nametable_header
+    STA PHI
+    JSR LoadPageTable
+
+    LDA #$01
+    PHA_SP ;; pageN
+    LDA #$00
+    PHA_SP ;; offsetX 0
+    PHA_SP ;; offsetY 0
+    PHN_SP 2 ;; Add space for retvals
+    JSR GetBytePtrFromPage
+    LDA #<TEST_ACTUAL
+    PHA_SP ;; targetLo
+    LDA #>TEST_ACTUAL
+    PHA_SP ;; targetHi
+    LDA #$1E ;; 30 bytes
+    PHA_SP ;; targetLen
+
+    JSR FillColumnFromPage
+    PLN_SP 8
+
+    SHOW
+    RTS
+.endproc
+
 .proc FillColumnFromPage2WithWorldXY
   ;; Expected: buffer is filled with a 30 value column of all 2s
     JMP after_data
@@ -376,6 +384,8 @@ empty_nametable_header:
     PHA_SP ;; name table byte is 8 pixels tall
     PHN_SP 3 ;; Add space for ret vals
     JSR CoordsWorld2Page
+    PHN_SP 2 ;; Add space for retvals
+    JSR GetBytePtrFromPage
     LDA #<TEST_ACTUAL
     PHA_SP
     LDA #>TEST_ACTUAL
@@ -383,23 +393,254 @@ empty_nametable_header:
     LDA #$1E ;; scroll buffer len is 30 bytes
     PHA_SP
     JSR FillColumnFromPage
-    PLN_SP 12 ;; Pop all
+    PLN_SP 14 ;; Pop all
 
     SHOW
     RTS
 .endproc
 
+;; FillRowFromPage tests start here
+.proc FillRowFromLattice
+  ;; Expected: buffer is filled with a 32 value row from the topleft of the lattice
+    LDX #$00
+    .repeat 32
+      LDA lattice,X
+      STA TEST_EXPECTED,X
+      INX
+    .endrepeat
+
+    ;; set up page table
+    LDA #<lattice_header
+    STA PLO
+    LDA #>lattice_header
+    STA PHI
+    JSR LoadPageTable
+
+    LDA #$00
+    PHA_SP ;; pageN
+    PHA_SP ;; offsetX
+    PHA_SP ;; offsetY
+    PHN_SP 2 ;; Add space for retvals
+    JSR GetBytePtrFromPage
+    LDA #<TEST_ACTUAL
+    PHA_SP ;; targetLo
+    LDA #>TEST_ACTUAL
+    PHA_SP ;; targetHi
+    LDA #$20 ;; 32 bytes
+    PHA_SP ;; targetLen
+
+    JSR FillRowFromPage
+    PLN_SP 8
+
+    SHOW
+    RTS
+.endproc
+
+.proc FillRowFromPageFromXYOffset
+  ;; Expected: buffer is filled with a 32 value row from the topleft of the lattice
+    JMP after_data
+    expected_data:
+      .byte $47, $48, $49, $4A, $4B, $4C, $4D, $4E
+      .byte $4F, $40, $41, $42, $43, $44, $45, $46
+      .byte $47, $48, $49, $4A, $4B, $4C, $4D, $4E
+      .byte $4F, $40, $41, $42, $43, $44, $45, $46
+    after_data:
+    LDX #$00
+    loop:
+      LDA expected_data,X
+      STA TEST_EXPECTED,X
+      INX
+      CPX #$20
+      BNE loop
+
+    ;; set up page table
+    LDA #<lattice_header
+    STA PLO
+    LDA #>lattice_header
+    STA PHI
+    JSR LoadPageTable
+
+    LDA #$00
+    PHA_SP ;; pageN
+    LDA #$07
+    PHA_SP ;; offsetX
+    LDA #$04
+    PHA_SP ;; offsetY
+    PHN_SP 2 ;; Add space for retvals
+    JSR GetBytePtrFromPage
+    LDA #<TEST_ACTUAL
+    PHA_SP ;; targetLo
+    LDA #>TEST_ACTUAL
+    PHA_SP ;; targetHi
+    LDA #$20 ;; 32 bytes
+    PHA_SP ;; targetLen
+
+    JSR FillRowFromPage
+    PLN_SP 8
+
+    SHOW
+    RTS
+.endproc
+
+.proc FillRowFromPageFromCorner
+  ;; Expected: buffer is filled with a 32 value row from the bottom-right of the lattice
+    JMP after_data
+    expected_data:
+      .byte $DF, $D0, $D1, $D2, $D3, $D4, $D5, $D6
+      .byte $D7, $D8, $D9, $DA, $DB, $DC, $DD, $DE
+      .byte $DF, $D0, $D1, $D2, $D3, $D4, $D5, $D6
+      .byte $D7, $D8, $D9, $DA, $DB, $DC, $DD, $DE
+    after_data:
+    LDX #$00
+    loop:
+      LDA expected_data,X
+      STA TEST_EXPECTED,X
+      INX
+      CPX #$20
+      BNE loop
+
+    ;; set up page table
+    LDA #<lattice_header
+    STA PLO
+    LDA #>lattice_header
+    STA PHI
+    JSR LoadPageTable
+
+    LDA #$03
+    PHA_SP ;; pageN
+    LDA #$1F
+    PHA_SP ;; offsetX - 31
+    LDA #$1D
+    PHA_SP ;; offsetY - 29
+    PHN_SP 2 ;; Add space for retvals
+    JSR GetBytePtrFromPage
+    LDA #<TEST_ACTUAL
+    PHA_SP ;; targetLo
+    LDA #>TEST_ACTUAL
+    PHA_SP ;; targetHi
+    LDA #$20 ;; 32 bytes
+    PHA_SP ;; targetLen
+
+    JSR FillRowFromPage
+    PLN_SP 8
+
+    SHOW
+    RTS
+.endproc
+
+.proc FillRowFromPage2
+  ;; Expected: buffer is filled with a 32 value row of all 2s
+    JMP after_data
+    expected_data:
+      .repeat 32
+        .byte $02
+      .endrepeat
+    after_data:
+
+    LDX #$00
+    loop:
+      LDA expected_data,X
+      STA TEST_EXPECTED,X
+      INX
+      CPX #$20
+      BNE loop
+
+    ;; set up page table
+    LDA #<integer_nametable_header
+    STA PLO
+    LDA #>integer_nametable_header
+    STA PHI
+    JSR LoadPageTable
+
+    LDA #$01
+    PHA_SP ;; pageN
+    LDA #$00
+    PHA_SP ;; offsetX 0
+    PHA_SP ;; offsetY 0
+    PHN_SP 2 ;; Add space for retvals
+    JSR GetBytePtrFromPage
+    LDA #<TEST_ACTUAL
+    PHA_SP ;; targetLo
+    LDA #>TEST_ACTUAL
+    PHA_SP ;; targetHi
+    LDA #$20 ;; 32 bytes
+    PHA_SP ;; targetLen
+
+    JSR FillRowFromPage
+    PLN_SP 8
+
+    SHOW
+    RTS
+.endproc
+
+.proc FillRowFromPage2WithWorldXY
+  ;; Expected: buffer is filled with a 32 value row of all 2s
+    JMP after_data
+    expected_data:
+      .repeat 32
+        .byte $02
+      .endrepeat
+    after_data:
+
+    LDX #$00
+    loop:
+      LDA expected_data,X
+      STA TEST_EXPECTED,X
+      INX
+      CPX #$20
+      BNE loop
+
+    ;; set up page table
+    LDA #<integer_nametable_header
+    STA PLO
+    LDA #>integer_nametable_header
+    STA PHI
+    JSR LoadPageTable
+
+    LDA #$00
+    PHA_SP
+    LDA #$01
+    PHA_SP ;; X = 256
+    LDA #$00
+    PHA_SP
+    PHA_SP ;; Y = 0
+    LDA #$08
+    PHA_SP ;; name table byte is 8 pixels wide
+    PHA_SP ;; name table byte is 8 pixels tall
+    PHN_SP 3 ;; Add space for ret vals
+    JSR CoordsWorld2Page
+    PHN_SP 2 ;; Add space for retvals
+    JSR GetBytePtrFromPage
+    LDA #<TEST_ACTUAL
+    PHA_SP
+    LDA #>TEST_ACTUAL
+    PHA_SP
+    LDA #$20 ;; scroll buffer len is 32 bytes
+    PHA_SP
+    JSR FillRowFromPage
+    PLN_SP 14 ;; Pop all
+
+    SHOW
+    RTS
+.endproc
 
 .proc RunTests
   TEST BoundsCheckDeltaUnderflow    ;; Test 0
   TEST BoundsCheckDeltaOverflow     ;; Test 1
   TEST BoundsCheckDeltaSafeNegative ;; Test 2
   TEST BoundsCheckDeltaSafePositive ;; Test 3
-  TEST FillColumnFromLattice      ;; Test 4
-  TEST FillColumnFromPageFromXYOffset ;; Test 5
-  TEST FillColumnFromPageFromCorner ;; Test 6
-  TEST FillColumnFromPage2 ;; Test 7
-  TEST CheckWorldCoordinatesToName ;; Test 8
+  TEST CheckWorldCoordinatesToName ;; Test 4
+
+  TEST FillColumnFromLattice      ;; Test 5
+  TEST FillColumnFromPageFromXYOffset ;; Test 6
+  TEST FillColumnFromPageFromCorner ;; Test 7
+  TEST FillColumnFromPage2 ;; Test 8
   TEST FillColumnFromPage2WithWorldXY ;; Test 9
+
+;;  TEST FillRowFromLattice      ;; Test 10
+  TEST FillRowFromPageFromXYOffset ;; Test 11
+  TEST FillRowFromPageFromCorner ;; Test 12
+  TEST FillRowFromPage2 ;; Test 13
+  TEST FillRowFromPage2WithWorldXY ;; Test 14
   RTS
 .endproc
