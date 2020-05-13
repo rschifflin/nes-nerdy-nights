@@ -1,68 +1,99 @@
-# Test 0
-NAME
+#### Test 0
+Name
   Bounds Check: Delta would underflow 0
-
-DESCRIPTION
+Description
   Given a lower limit of 0,
   and a current position near 0,
   and a delta that would underflow below 0,
   Expects delta to be adjusted to just meet 0
-
-ROWS
+Rows
   1
+##
 
-# Test 1
-NAME
+#### Test 1
+Name
   Bounds Check: Delta would overflow 0x300
-
-DESCRIPTION
+Description
   Given an upper limit of 0x300
   and a current position near 0x300
   and a delta that would overflow 0x300,
   expect delta to be adjusted to just meet 0
-
-ROWS
+Rows
   1
+##
 
-# Test 2
-NAME
+#### Test 2
+Name
   Bounds check: Negative delta without underflow
-
-DESCRIPTION
+Description
   With a negative delta not in danger of underflowing 0
   It makes no changes to the delta
-
-ROWS
+Rows
   1
+##
 
-# Test 3
-NAME
+#### Test 3
+Name
   Bounds check: Positive delta with overflow
-
-DESCRIPTION
+Description
   With a positive delta not in danger of overflowing 0x300
   It makes no changes to the delta
+Rows
+  1
+##
 
+#### Test 4
+Name
+  Fill column name page from 0
+Description
+  When given page 0, offset x/y 0, FillColumnNamePage should just give the first column of the lattice nametable data.
+Rows
+  2 # 30 tiles high, 1 byte per tile, 16 bytes per test row
+##
+
+#### Test 5
+Name
+  Fill column name page from 0, offset-x 7, offset-y 4
+Description
+  When given page 0, offset-x 7, offset-y 4, FillColumnNamePage should just give the properly adjusted, page-spanning column
+Rows
+  2 # 30 tiles high, 1 byte per tile, 16 bytes per test row
+##
+
+#### Test 6
+Name
+  Fill column name page from 3, offset-x 31, offset-y 31
+Description
+  When given page 3, offset-x 31, offset-y 29, FillColumnNamePage should just give the properly adjusted, page-spanning column
+Rows
+  2 # 30 tiles high, 1 byte per tile, 16 bytes per test row
+##
+
+#### Test 7
+Name
+  Fill column name page from 2, offset-x 0, offset-y 0
+Description
+  When given page 2, where page is all 1s and page 2 is all 2s,
+  Should pull a column of all 2s
+Rows
+  2 # 30 tiles high, 1 byte per tile, 16 bytes per test row
+##
+
+#### Test 8
+NAME
+  Convert world coordinates to name coordinates
+DESCRIPTION
+  Converts world coordinate (1301, 992) in pixels to the page ref of a nametable
+  with 6x5 pages
 ROWS
   1
-
-# Test 4
+##
+#
+#### Test 9
 NAME
-  Fill column name page from 0
-
+  Fill column name page from 2 using world coordinates
 DESCRIPTION
-  When given page 0, offset x/y 0, FillColumnNamePage should just give the first column of the lattice nametable data.
-
+  Converts world coordinate (257, 0) in pixels to the page ref of a nametable and loads it as a column
 ROWS
-  2 # 30 tiles high, 1 byte per tile, 16 bytes per test row
-
-# Test 5
-NAME
-  Fill column name page from 0, offset-x 7, offset-y 4
-
-DESCRIPTION
-  When given page 0, offset-x 7, offset-y 4, FillColumnNamePage should just give the properly adjusted, page-spanning column
-
-
-ROWS
-  2 # 30 tiles high, 1 byte per tile, 16 bytes per test row
+  2
+##

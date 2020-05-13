@@ -1,51 +1,13 @@
+.include "defs/nes.asm"
+.include "defs/game.asm"
+
 .include "data/header.asm"
-.include "data/constants.asm"
 
 .segment "ZEROPAGE" ; premium real estate for global variables
-
-;;;; Memory registers.
-;; Interrupts should preserve these values to stay re-entrant
-;; Like A,X and Y, may be clobbered by JSR.
-SP:            .res 1 ; Software stack pointer
-PLO:           .res 1 ; pointer reg used for indirection
-PHI:           .res 1 ; pointer reg used for indirection
-;;
-r0:            .res 1 ; Simple re-usable byte register
-r1:            .res 1 ; Simple re-usable byte register
-;;;;
-
-;;;; Global system variables.
-;; Should not be modified by general-purpose library code
-chr_bank:      .res 1  ;; Keeps track of our CHR bank, up to 16 for 8kb banks or 32 for 4kb banks
-prg_bank:      .res 1  ;; Keeps track of our PRG bank, up to 8 for 32kb banks or 16 for 16kb banks
-p1_controller: .res 1  ;; Holds bitmask of controller state
-p2_controller: .res 1  ;; Holds bitmask of controller state
-
-cam_x:       .res 2  ;; Holds horizontal scroll position 16bit
-cam_y:       .res 2  ;; Holds vertical scroll position 16bit
-cam_dx:      .res 1  ;; Holds horizontal scroll delta, signed
-cam_dy:      .res 1  ;; Holds vertical scroll delta, signed
-
-;; Rendering variables
-render_flags:      .res 1 ;; For miscellaneous flags
-                      ;; bit 0: whether or not the nametables are swapped. 0 = normal order, 1 = swapped order
-;;;;
-
-;;;; ZP program variables
-state:         .res 1
-frame_counter: .res 1
-current_frame: .res 1
-;;;;
+.include "data/zp.asm"
 
 .segment "BSS" ; Rest of RAM, $0200-$07FF. First 255 bytes are sprite DMA. Rest are free to use
-sprite_area:               .res 256
-
-scroll_speed:              .res 1 ;; How much to scroll by when pressing left or right
-scroll_buffer_status:      .res 1 ;; Indicates whether a buffer is ready (1) or not-ready (0). bit 3 = left attr, bit 2 = left name, bit 1 = right_attr, bit 0 = right_name
-scroll_buffer_left_name:   .res 30
-scroll_buffer_right_name:  .res 30
-scroll_buffer_left_attr:   .res 8
-scroll_buffer_right_attr:  .res 8
+.include "data/bss.asm"
 
 .segment "PRG1" ;; Fixed PRG ROM. Always present
 .include "lib/core.asm"    ;; 6502 basic utilities. Should always remain banked in
@@ -94,10 +56,23 @@ clear_stack:
   JSR InitMemory
 
   ;; Initialize name and attr buffers for rendering
-  JSR FillLeftAttrBuffer
-  JSR FillRightAttrBuffer
-  JSR FillLeftNameBuffer
-  JSR FillRightNameBuffer
+  LDA #<attribute_table_header
+  STA PLO
+  LDA #>attribute_table_header
+  STA PHI
+  JSR LoadPageTable
+
+  JSR FillLeftAttrBufferFromPage
+  JSR FillRightAttrBufferFromPage
+
+  LDA #<name_table_header
+  STA PLO
+  LDA #>name_table_header
+  STA PHI
+  JSR LoadPageTable
+
+  JSR FillLeftNameBufferFromPage
+  JSR FillRightNameBufferFromPage
 
   ;; Initialize speed to 1
   LDA #$01
@@ -172,9 +147,25 @@ palette:
 
 name_table:
   .include "data/name_table.asm"
+name_table_header:
+  .byte 3 ;; 3 pages wide
+  .byte 1 ;; 1 pages high
+  .byte 32 ;; 32 bytes wide per page
+  .byte 30 ;; 30 bytes high per page
+  .word 960 ;; 960 bytes total per page
+  .word 2880 ;; 2880 bytes total per row
+  .addr name_table
 
 attribute_table:
   .include "data/attr_table.asm"
+attribute_table_header:
+  .byte 3 ;; 3 pages wide
+  .byte 1 ;; 1 pages high
+  .byte 8 ;; 8 bytes wide per page
+  .byte 8 ;; 8 bytes high per page
+  .word 64 ;; 64 bytes total per page
+  .word 192 ;; 192 bytes total per row
+  .addr attribute_table
 
 sprites:
   .include "data/sprites.asm"
@@ -201,11 +192,16 @@ run:
   STA current_frame
 
   .scope camera_buffers
+      LDA #<attribute_table_header
+      STA PLO
+      LDA #>attribute_table_header
+      STA PHI
+      JSR LoadPageTable
     check_left_attr:
       LDA scroll_buffer_status
       AND #SCROLL_BUFFER_LEFT_ATTR_READY
       BNE check_right_attr
-      JSR FillLeftAttrBuffer
+      JSR FillLeftAttrBufferFromPage
       LDA scroll_buffer_status
       ORA #SCROLL_BUFFER_LEFT_ATTR_READY
       STA scroll_buffer_status
@@ -214,25 +210,29 @@ run:
       LDA scroll_buffer_status
       AND #SCROLL_BUFFER_RIGHT_ATTR_READY
       BNE check_left_name
-      JSR FillRightAttrBuffer
+      JSR FillRightAttrBufferFromPage
       LDA scroll_buffer_status
       ORA #SCROLL_BUFFER_RIGHT_ATTR_READY
       STA scroll_buffer_status
 
+      LDA #<name_table_header
+      STA PLO
+      LDA #>name_table_header
+      STA PHI
+      JSR LoadPageTable
     check_left_name:
       LDA scroll_buffer_status
       AND #SCROLL_BUFFER_LEFT_NAME_READY
       BNE check_right_name
-      JSR FillLeftNameBuffer
+      JSR FillLeftNameBufferFromPage
       LDA scroll_buffer_status
       ORA #SCROLL_BUFFER_LEFT_NAME_READY
       STA scroll_buffer_status
-
     check_right_name:
       LDA scroll_buffer_status
       AND #SCROLL_BUFFER_RIGHT_NAME_READY
       BNE done
-      JSR FillRightNameBuffer
+      JSR FillRightNameBufferFromPage
       LDA scroll_buffer_status
       ORA #SCROLL_BUFFER_RIGHT_NAME_READY
       STA scroll_buffer_status

@@ -18,7 +18,7 @@ TEST_COUNT_TOTAL_HI      = $7FFD
 TEST_RESERVED            = $7FFE ;; Dunno what to do with this yet
 TEST_SHOW                = $7FFF
 
-.include "../data/constants.asm"
+.include "../defs/nes.asm"
 
 .segment "ZEROPAGE"
 .include "../data/zp.asm"
@@ -112,10 +112,12 @@ strings:
   DEC TEST_SHOW
 .endmacro
 .macro BREAKPOINT
+  PHA
   LDA #$02
-  LDX #$00
   STA TEST_SHOW
+  LDA #$00
   STX TEST_SHOW
+  PLA
 .endmacro
 
 run:
@@ -124,4 +126,4 @@ run:
   STA TEST_COUNT_TOTAL_HI
   STA TEST_RESERVED
   JSR RunTests
-
+  BRK
