@@ -148,8 +148,8 @@ palette:
 name_table:
   .include "data/name_table.asm"
 name_table_header:
-  .byte 3 ;; 3 pages wide
-  .byte 1 ;; 1 pages high
+  .byte 4 ;; 4 pages wide
+  .byte 2 ;; 2 pages high
   .byte 32 ;; 32 bytes wide per page
   .byte 30 ;; 30 bytes high per page
   .word 960 ;; 960 bytes total per page
@@ -159,8 +159,8 @@ name_table_header:
 attribute_table:
   .include "data/attr_table.asm"
 attribute_table_header:
-  .byte 3 ;; 3 pages wide
-  .byte 1 ;; 1 pages high
+  .byte 4 ;; 4 pages wide
+  .byte 2 ;; 2 pages high
   .byte 8 ;; 8 bytes wide per page
   .byte 8 ;; 8 bytes high per page
   .word 64 ;; 64 bytes total per page
@@ -244,6 +244,34 @@ scroll_buffer_done:
   JSR UpdateController
   .scope scroll
       LDA p1_controller
+      AND #CONTROLLER_A
+      BEQ a_done
+
+      LDA scroll_speed
+      CLC
+      ADC #01
+      CMP #MAX_X_SCROLL_SPEED + 1
+      BCC @scroll_speed_valid
+      LDA #MAX_X_SCROLL_SPEED
+    @scroll_speed_valid:
+      STA scroll_speed
+    a_done:
+
+      LDA p1_controller
+      AND #CONTROLLER_B
+      BEQ b_done
+
+      LDA scroll_speed
+      SEC
+      SBC #01
+      CMP #MIN_X_SCROLL_SPEED
+      BCS @scroll_speed_valid
+      LDA #MIN_X_SCROLL_SPEED
+    @scroll_speed_valid:
+      STA scroll_speed
+    b_done:
+
+      LDA p1_controller
       AND #CONTROLLER_RIGHT
       BEQ right_done
 
@@ -258,31 +286,24 @@ scroll_buffer_done:
       STA cam_dx
       STA_TWOS_COMP cam_dx
     left_done:
+
+      ;; Note, Y is inverted so 'up' on the controller corresponds to decreasing Y
       LDA p1_controller
       AND #CONTROLLER_UP
       BEQ up_done
 
       LDA scroll_speed
-      CLC
-      ADC #01
-      CMP #MAX_X_SCROLL_SPEED + 1
-      BCC @scroll_speed_valid
-      LDA #MAX_X_SCROLL_SPEED
-    @scroll_speed_valid:
-      STA scroll_speed
+      STA cam_dy
+      STA_TWOS_COMP cam_dy
     up_done:
+
+      ;; Note, Y is inverted so 'down' on the controller corresponds to increasing Y
       LDA p1_controller
       AND #CONTROLLER_DOWN
       BEQ down_done
 
       LDA scroll_speed
-      SEC
-      SBC #01
-      CMP #MIN_X_SCROLL_SPEED
-      BCS @scroll_speed_valid
-      LDA #MIN_X_SCROLL_SPEED
-    @scroll_speed_valid:
-      STA scroll_speed
+      STA cam_dy
     down_done:
 
   .endscope

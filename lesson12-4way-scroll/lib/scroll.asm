@@ -242,6 +242,23 @@
     RTS
 .endproc
 
+.proc UpdateTopScrollName
+  RTS
+.endproc
+
+.proc UpdateTopScrollAttr
+  RTS
+.endproc
+
+.proc UpdateBottomScrollName
+  RTS
+.endproc
+
+.proc UpdateBottomScrollAttr
+  RTS
+.endproc
+
+
 ;; NOTE: The main thread might have gotten interrupted halfway between setting cam_x hi and cam_x lo, or while twos-complementing cam_dx, or other potentially dangerous unfinished operations.
 ;; We rely on the main thread setting the LOCKED render flag bit to 0 when it is safe to reference data. The NMI in turn has a responsibility to set the bit back to 1 when its done.
 ;; This means if the CPU cannot finish world code before render, we skip scrolling by cam_dx and skip updating cam_x.
@@ -284,6 +301,7 @@
         JSR UpdateRightScrollAttr
       @when_within_same_region:
       @when_within_same_tile:
+      @update_cam:
         LDA cam_dx
         CLC
         ADC cam_x
@@ -315,6 +333,7 @@
         JSR UpdateLeftScrollAttr
       @when_within_same_region:
       @when_within_same_tile:
+      @update_cam:
         LDA cam_x
         SEC
         SBC cam_dx
@@ -331,13 +350,110 @@
         STA cam_dx
     .endscope
 
-    LDA #$00
-    STA cam_dy
+    .scope scrolly
+        LDA cam_dy
+        BNE continue ;; scrolling needed
+        JMP done ;; When cam_dy is 0, no scrolling needed
+      continue:
+        BMI negative
+      positive:
+        LDA cam_dy
+        AND #%00000111
+        STA r0
+        LDA cam_y
+        AND #%00000111
+        CLC
+        ADC r0
+        CMP #$08
+        BCC @when_within_same_tile
+      @when_new_tile:
+        JSR UpdateTopScrollName
+        LDA cam_dy
+        AND #%00000111
+        STA r0
+        LDA cam_y
+        AND #%00011111
+        CLC
+        ADC r0
+        CMP #$20
+        BCC @when_within_same_region
+      @when_new_region:
+        JSR UpdateTopScrollAttr
+      @when_within_same_region:
+      @when_within_same_tile:
+      @update_cam:
+        LDA cam_dy
+        CLC
+        ADC cam_y
+        STA cam_y
+        BCC @update_scroll
+        INC cam_y+1
+      @update_scroll:
+        ;; Unlike x, where the scroll register matches the camera x low byte perfectly,
+        ;; Here the y scroll register is only 0-239.
+        ;; Overflow must be capped to that range
+        ;; NOTE: We assume cam_dy is also between 0-239, otherwise we have problems!
+        LDA ppu_scroll_y
+        CLC
+        ADC #$10 ;; ppu_scroll now 16-255
+        ADC cam_dy
+        BCS update_scroll_done ;; When overflow occurs
+        SEC
+        SBC #$10 ;; Reduce range back from 16-255 to 0-239
+        JMP update_scroll_done
+      negative:
+        STA_TWOS_COMP cam_dy
+
+        LDA cam_dy
+        AND #%00000111
+        STA r0
+        LDA cam_y
+        AND #%00000111
+        SEC
+        SBC r0
+        BPL @when_within_same_tile
+      @when_new_tile:
+        JSR UpdateBottomScrollName
+        LDA cam_dy
+        AND #%00000111
+        STA r0
+        LDA cam_y
+        AND #%00011111
+        SEC
+        SBC r0
+        BPL @when_within_same_region
+        JSR UpdateBottomScrollAttr
+      @when_within_same_region:
+      @when_within_same_tile:
+      @update_cam:
+        LDA cam_y
+        SEC
+        SBC cam_dy
+        STA cam_y
+        BCS @update_scroll
+        DEC cam_y+1
+      @update_scroll:
+        ;; Unlike x, where the scroll register matches the camera x low byte perfectly,
+        ;; Here the y scroll register is only 0-239.
+        ;; Underflow must be capped to that range
+        ;; NOTE: We assume cam_dy is also between 0-239, otherwise we have problems!
+        LDA ppu_scroll_y ;; range 0-239
+        SEC
+        SBC cam_dy
+        BCS update_scroll_done ;; When no underflow occurs
+        SEC
+        SBC #$10 ;; Subtract 16 from the underflowed value to bring it under 239
+      update_scroll_done:
+        STA ppu_scroll_y
+      done:
+        LDA #$00
+        STA cam_dy
+    .endscope
 
     BIT PPUCTRL
     LDA cam_x
     STA PPUSCROLL
-    LDA cam_y
+    LDA ppu_scroll_y
     STA PPUSCROLL
 
     RTS

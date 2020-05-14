@@ -43,21 +43,21 @@
 .endmacro
 
 .macro INC16 mem_loc
-.scope
-    INC mem_loc
-    BNE no_carry
-    INC mem_loc+1
-  no_carry:
-.endscope
+  .scope ;; anonymous
+      INC mem_loc
+      BNE no_carry
+      INC mem_loc+1
+    no_carry:
+  .endscope
 .endmacro
 
 .macro INC16_X mem_loc
-.scope
-    INC mem_loc,X
-    BNE no_carry
-    INC mem_loc+1,X
-  no_carry:
-.endscope
+  .scope ;; anonymous
+      INC mem_loc,X
+      BNE no_carry
+      INC mem_loc+1,X
+    no_carry:
+  .endscope
 .endmacro
 
 ;;;; AdcDec

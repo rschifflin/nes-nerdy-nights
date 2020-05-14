@@ -16,6 +16,8 @@ prg_bank:      .res 1  ;; Keeps track of our PRG bank, up to 8 for 32kb banks or
 p1_controller: .res 1  ;; Holds bitmask of controller state
 p2_controller: .res 1  ;; Holds bitmask of controller state
 
+ppu_scroll_y: .res 1 ;; Holds last set ppu scroll y register. This number is 0-239
+
 cam_x:       .res 2  ;; Holds horizontal scroll position 16bit
 cam_y:       .res 2  ;; Holds vertical scroll position 16bit
 cam_dx:      .res 1  ;; Holds horizontal scroll delta, signed
