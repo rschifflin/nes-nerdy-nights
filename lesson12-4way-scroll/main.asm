@@ -142,45 +142,6 @@ NMI:
   POP_IRQ
   RTI
 
-palette:
-  .include "data/palette.asm"
-
-name_table:
-  .include "data/name_table.asm"
-name_table_header:
-  .byte 4 ;; 4 pages wide
-  .byte 2 ;; 2 pages high
-  .byte 32 ;; 32 bytes wide per page
-  .byte 30 ;; 30 bytes high per page
-  .word 960 ;; 960 bytes total per page
-  .word 2880 ;; 2880 bytes total per row
-  .addr name_table
-
-attribute_table:
-  .include "data/attr_table.asm"
-attribute_table_header:
-  .byte 4 ;; 4 pages wide
-  .byte 2 ;; 2 pages high
-  .byte 8 ;; 8 bytes wide per page
-  .byte 8 ;; 8 bytes high per page
-  .word 64 ;; 64 bytes total per page
-  .word 192 ;; 192 bytes total per row
-  .addr attribute_table
-
-sprites:
-  .include "data/sprites.asm"
-
-strings:
-  .include "data/strings.asm"
-
-.segment "IVT"
-  .addr NMI     ;; Non-maskable interrupt (ie VBLANK)
-  .addr RESET   ;; Processor turns on or reset button is pressed
-  .word 0       ;; Other interrupts. Ignore for now
-
-.segment "PRG0" ;; Default bank-swapped PRG ROM at $8000.
-JMP RESET       ;; Entry point on program start
-
 .include "lib/game.asm"
 
 run:
@@ -312,6 +273,47 @@ scroll_buffer_done:
   AND #RENDER_FLAG_SCROLL_UNLOCKED
   STA render_flags ;; Allows NMI to use cam_dx/cam_dy to scroll its registers
   JMP run
+
+.segment "IVT"
+  .addr NMI     ;; Non-maskable interrupt (ie VBLANK)
+  .addr RESET   ;; Processor turns on or reset button is pressed
+  .word 0       ;; Other interrupts. Ignore for now
+
+.segment "PRG0" ;; Default bank-swapped PRG ROM at $8000.
+JMP RESET       ;; Entry point on program start
+
+palette:
+  .include "data/palette.asm"
+
+name_table:
+  .include "data/name_table.asm"
+
+name_table_header:
+  .byte 4 ;; 4 pages wide
+  .byte 3 ;; 2 pages high
+  .byte 32 ;; 32 bytes wide per page
+  .byte 30 ;; 30 bytes high per page
+  .word 960 ;; 960 bytes total per page
+  .word 2880 ;; 2880 bytes total per row
+  .addr name_table
+
+attribute_table:
+  .include "data/attr_table.asm"
+
+attribute_table_header:
+  .byte 4 ;; 4 pages wide
+  .byte 3 ;; 2 pages high
+  .byte 8 ;; 8 bytes wide per page
+  .byte 8 ;; 8 bytes high per page
+  .word 64 ;; 64 bytes total per page
+  .word 192 ;; 192 bytes total per row
+  .addr attribute_table
+
+sprites:
+  .include "data/sprites.asm"
+
+strings:
+  .include "data/strings.asm"
 
 .segment "CHR0" ; 8kb, always present
   .incbin "assets/mario.chr" ; test data to fill the chr bank

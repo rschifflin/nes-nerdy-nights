@@ -1,9 +1,8 @@
 .macro UPDATE_SCROLL_BUFFER
-.scope
-  LDA #PPUCTRL_INC32
-  STA PPUCTRL
-
-.endscope
+  .scope ;; anonymous
+      LDA #PPUCTRL_INC32
+      STA PPUCTRL
+  .endscope
 .endmacro
 
 .proc UpdateRightScrollName
@@ -17,39 +16,40 @@
     TAX
     INX
     CPX #$20 ;; 32 tiles = 256 bytes, which means we wrapped around to 0
-    BNE handle_nonzero
-  handle_zero: ;; Special case- We want to buffer bytes from the left edge of the current nametable
-    .scope zero_case
-        LDX #$00
-        LDA render_flags
-        AND #RENDER_FLAG_NAMETABLES_FLIPPED
-        BNE when_flipped
-      when_default:
-        LDY #$20
-        JSR SetPPUAddress
-        JMP write
-      when_flipped:
-        LDY #$24
-        JSR SetPPUAddress
-        JMP write
-    .endscope
-  handle_nonzero: ;; Common case- We want to buffer bytes from 8 pixels right of our offset in the opposite nametable
-    .scope nonzero_case
-        LDA render_flags
-        AND #RENDER_FLAG_NAMETABLES_FLIPPED
-        BNE when_flipped
-      when_default:
-        LDY #$24
-        JSR SetPPUAddress
-        JMP write
-      when_flipped:
-        LDY #$20
-        JSR SetPPUAddress
-    .endscope
+    BNE when_nonzero
+  when_zero: ;; Special case- We want to buffer bytes from the left edge of the current nametable
+    LDX #>PPU_ADDR_NAMETABLE0
+    LDY #>PPU_ADDR_NAMETABLE1
+    JMP set_ppu_target_hi
+  when_nonzero:
+    LDX #>PPU_ADDR_NAMETABLE1
+    LDY #>PPU_ADDR_NAMETABLE0
+  set_ppu_target_hi:
+    LDA render_flags
+    AND #RENDER_FLAG_NAMETABLES_FLIPPED
+    BNE when_nametables_flipped
+  when_nametables_default:
+    TXA
+    PHA_SP ;; PPUTargetHi
+    JMP write
+  when_nametables_flipped:
+    TYA
+    PHA_SP ;; PPUTargetHi
   write:
-    LDA #PPUCTRL_INC32
-    STA PPUCTRL
-    Call_WritePPUBytes scroll_buffer_right_name, $1E ;; 30 bytes
+    LDA cam_x
+    CLC
+    ADC #$08
+    PHA_SP ;; scrollX
+    LDA ppu_scroll_y
+    PHA_SP ;; scrollY
+    LDA #<scroll_buffer_right_name
+    STA PLO
+    LDA #>scroll_buffer_right_name
+    STA PHI
+    LDA #$1E
+    STA r0 ;; 30 bytes in the scroll buffer
+    JSR WritePPUNameColumn
+    PLN_SP 3
     RTS
 .endproc
 
@@ -130,42 +130,40 @@
     .repeat 3
       LSR A
     .endrepeat
-    BNE handle_nonzero
-  handle_zero: ;; Special case- We want to buffer bytes from the right edge of the opposite nametable
-    .scope zero_case
-        LDX #$1F
-        LDA render_flags
-        AND #RENDER_FLAG_NAMETABLES_FLIPPED
-        BNE when_flipped
-      when_default:
-        LDY #$24
-        JSR SetPPUAddress
-        JMP write
-      when_flipped:
-        LDY #$20
-        JSR SetPPUAddress
-        JMP write
-    .endscope
-  handle_nonzero: ;; Common case- We want to buffer bytes from 8 pixels left of the current nametable
-    .scope nonzero_case
-        TAX
-        DEX
-        LDA render_flags
-        AND #RENDER_FLAG_NAMETABLES_FLIPPED
-        BNE when_flipped
-      when_default:
-        LDY #$20
-        JSR SetPPUAddress
-        JMP write
-      when_flipped:
-        LDY #$24
-        JSR SetPPUAddress
-    .endscope
+    BNE when_nonzero
+  when_zero:
+    LDX #$24
+    LDY #$20
+    JMP set_ppu_target_hi
+  when_nonzero:
+    LDX #$20
+    LDY #$24
+  set_ppu_target_hi:
+    LDA render_flags
+    AND #RENDER_FLAG_NAMETABLES_FLIPPED
+    BNE when_nametables_flipped
+  when_nametables_default:
+    TXA
+    PHA_SP ;; TargetHi
+    JMP write
+  when_nametables_flipped:
+    TYA
+    PHA_SP ;; TargetHi
   write:
-    LDA #PPUCTRL_INC32
-    STA PPUCTRL
-    Call_WritePPUBytes scroll_buffer_left_name, $1E ;; 30 bytes
-
+    LDA cam_x
+    SEC
+    SBC #$08
+    PHA_SP ;; scrollX
+    LDA ppu_scroll_y
+    PHA_SP ;; scrollY
+    LDA #<scroll_buffer_left_name
+    STA PLO
+    LDA #>scroll_buffer_left_name
+    STA PHI
+    LDA #$1E
+    STA r0 ;; 30 bytes in the scroll buffer
+    JSR WritePPUNameColumn
+    PLN_SP 3
     RTS
 .endproc
 
@@ -243,7 +241,42 @@
 .endproc
 
 .proc UpdateTopScrollName
-  RTS
+    LDA #$00
+    STA scroll_buffer_status
+
+    ;; When advancing down, we always draw to the line of the scroll buffer
+    ;; When retreating up, we always draw to the line above the scroll buffer
+    LDA ppu_scroll_y
+    .repeat 3
+      LSR A
+    .endrepeat
+
+    ;; Write the line ABOVE ppu_scroll_y- if it underflows ensure it wraps to 29
+    SEC
+    SBC #$01
+    BCS within_range ;; branch when no underflow
+    LDA #$1D ;; Underflow to 29
+  within_range:
+    ;; NameTable offset is 32 bytes per row, we need to multiply by 32 to get the nametable addr
+    LDX #$00
+    STX r0
+    CLC
+    .repeat 5
+      ROL A ;; A holds the low byte of A*32
+      ROL r0 ;; r0 holds the high byte of A*32
+    .endrepeat
+    TAX ;; PPU address is aligned on 256-byte boundary so the low byte is the same
+    LDA r0
+    ;; Carry is already cleared from rotating a 0 left out of r0 above
+    ADC #$20 ;; high byte of ppu nametable0 address
+    TAY ;; X and Y now hold addr-lo and addr-hi
+    JSR SetPPUAddress
+
+    LDA #$00 ;; Increment by 1 each write
+    STA PPUCTRL
+
+    Call_WritePPUBytes scroll_buffer_top_name, $20 ;; 32 bytes
+    RTS
 .endproc
 
 .proc UpdateTopScrollAttr
@@ -251,6 +284,36 @@
 .endproc
 
 .proc UpdateBottomScrollName
+    LDA #$00
+    STA scroll_buffer_status
+
+    ;; When advancing down, we always draw to the line of the scroll buffer
+    ;; When retreating up, we always draw to the line above the scroll buffer
+    LDA ppu_scroll_y
+    .repeat 3
+      LSR A
+    .endrepeat
+  within_range:
+    ;; NameTable offset is 32 bytes per row so multiply by 32 per coarse scroll_y
+    LDX #$00
+    STX r0
+    CLC
+    .repeat 5
+      ROL A ;; A holds the low byte of A*32
+      ROL r0 ;; r0 holds the high byte of A*32
+    .endrepeat
+    TAX ;; PPU address is aligned on 256-byte boundary so the low byte is the same
+    LDA r0
+    ;; Carry is already cleared from rotating a 0 left out of r0 above
+    ADC #$20 ;; high byte of ppu nametable0 address
+    TAY ;; X and Y now hold addr-lo and addr-hi
+    JSR SetPPUAddress
+
+    LDA #$00 ;; Increment by 1 each write
+    STA PPUCTRL
+
+    Call_WritePPUBytes scroll_buffer_bottom_name, $20 ;; 32 bytes
+    RTS
   RTS
 .endproc
 
@@ -367,7 +430,7 @@
         CMP #$08
         BCC @when_within_same_tile
       @when_new_tile:
-        JSR UpdateTopScrollName
+        JSR UpdateBottomScrollName ;; Positive Y means towards the bottom
         LDA cam_dy
         AND #%00000111
         STA r0
@@ -413,7 +476,7 @@
         SBC r0
         BPL @when_within_same_tile
       @when_new_tile:
-        JSR UpdateBottomScrollName
+        JSR UpdateTopScrollName ;; Decreasing Y means towards the top
         LDA cam_dy
         AND #%00000111
         STA r0

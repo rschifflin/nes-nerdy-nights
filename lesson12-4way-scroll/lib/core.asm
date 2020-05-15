@@ -60,6 +60,22 @@
   .endscope
 .endmacro
 
+;; Multiply two 8 bit numbers stored in A and X.
+;; The result is a 16 bit number, stored in A-lo X-hi
+.proc Mul8
+    STX r0
+    ADC r0
+    CMP #$0A
+    BCC done ; done if result < 10
+    SEC
+    SBC #$0A
+
+    SEC ;; Indicate overflow
+  done:
+    RTS
+.endproc
+;;;;
+
 ;;;; AdcDec
 ;; 0-byte stack frame: 0 args, 0 return
 ;; Acts like ADC but only operates on two decimal bytes guaranteed to be between 0-9.

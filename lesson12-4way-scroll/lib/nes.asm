@@ -1,7 +1,7 @@
 ;;;; SUBROUTINES AND MACROS
 .proc WaitVblank
   BIT PPUSTATUS  ;; Test the interrupt bit (bit 7) of the PPUSTATUS port
-  BPL WaitVblank ;;Loop until the interrupt bit is set
+  BPL WaitVblank ;; branch when bit is low, aka loop until the interrupt bit is set
   RTS
 .endproc
 
@@ -35,6 +35,133 @@
 .endproc
 ;;;;
 
+;;;;WritePPUNameColumn
+;; 3-byte stack: 3 args, 0 return
+;; Expects P to hold address of buffer to read from
+;; Expects r0 to hold length of buffer to read from
+;; PPUTargetLo is generated from the given offsets
+;; Sets PPUCTRL to INC32 and PPUADDR to ppuTargetLo/Hi
+;; NOTE: If we mirror horizontally, this method can write
+;; a logical column through both vertical name tables.
+;; If we mirror vertically, this method writes into
+;; the mirrored nametable, causing a wrap effect.
+.proc WritePPUNameColumn
+    ;; Stack frame
+    ppuTargetHi  = SW_STACK-2
+    scrollX      = SW_STACK-1
+    scrollY      = SW_STACK-0
+    bufferLen    = r0
+    columnLen    = r1
+
+    LDX SP
+    .repeat 3
+      LSR scrollX,X
+      LSR scrollY,X
+    .endrepeat
+    ;; Transforms scroll pixel values into coarse scroll tile values
+
+    LDA #$1E ;; Max rows in a name column
+    SEC
+    SBC scrollY,X ;; Minus offset rows aka coarse scroll y
+    STA columnLen ;; r1 now holds # of rows remaining for this page after we offset
+                  ;; NOTE: Guaranteed to be > 0 since scroll_y is <= 239
+
+    LDA #PPUCTRL_INC32
+    STA PPUCTRL
+
+    LDX SP
+    ;; Set PPUADDR based on given Hi and coarse scroll offsets
+    LDA scrollY,X
+    BEQ target_skip ;; If no scroll-y, no calculation needed
+    LDA scrollX,X
+    LDY ppuTargetHi,X
+  target_loop:
+    CLC
+    ADC #$20 ;; Add 32 columns of bytes for each row offset
+    BCC @no_carry
+    INY ;; Bump ppu target hi on carry
+  @no_carry:
+    DEC scrollY,X
+    BNE target_loop
+    JMP target_done
+  target_skip:
+    LDA scrollX,X
+    LDY ppuTargetHi,X
+  target_done:
+    LDX PPUSTATUS ;; Prepare to change PPU Address
+    STY PPUADDR   ;; PPU high = targetHi from calculated above
+    STA PPUADDR   ;; PPU low =  targetLo from calculated above
+    ;; Fall into the Write proc as a tail call
+
+    ;;;; Write
+    ;; Expects P=src, r0=buffer_len, r1=column_len
+    .proc Write
+        ;; Stack frame
+        ppuTargetHi        = SW_STACK-2
+        ppuTargetLo        = SW_STACK-1
+        _unused            = SW_STACK-0
+        bufferLen          = r0
+        columnLen          = r1
+
+        ;; Guard clause against empty buffers
+        LDA bufferLen
+        BNE continue
+        RTS
+      continue:
+
+        ;; Count down and write until buffer len is empty or name table limit is hit
+        LDX SP
+        LDY #$00
+      loop:
+        LDA (PLO),Y
+        STA PPUDATA
+        INY
+        DEC bufferLen
+        BNE when_nonempty
+        RTS ;; len is empty, job is done
+      when_nonempty:
+        DEC columnLen ;; Y-scroll never exceeds 239, thus columnLen is always nonzero to start
+        BNE loop ;; Loop while there's still space in this nametable column to write
+        ;; Else, out of nametable space with data still to be written.
+
+        LDA #$1E ;; Fresh 30 bytes of nametable space for the column
+        STA columnLen
+
+        ;; Advance down the buffer Y bytes for the next call
+        TYA
+        CLC
+        ADC PLO
+        STA PLO
+        BCC @no_carry
+        INC PHI
+      @no_carry:
+
+        ;; Swap nametables
+        LDA ppuTargetHi,X
+        CMP #>PPU_ADDR_NAMETABLE2
+        BCS when_far_name_table
+      when_near_name_table:
+        CLC
+        ADC #$08
+        JMP swap_done
+      when_far_name_table:
+        SEC
+        SBC #$08
+      swap_done:
+        STA ppuTargetHi,X
+
+        ;; Change PPUADDR
+        LDY PPUSTATUS ;; Prepare to change PPU Address
+        STA PPUADDR   ;; Set PPU High
+        LDA ppuTargetLo,X
+        STA PPUADDR   ;; Set PPU Low
+
+        ;; Tail call recursion
+        JMP Write
+    .endproc
+.endproc
+
+
 ;;;; SetPPUAddress
 ;; X holds the low byte
 ;; Y holds the high byte
@@ -62,12 +189,11 @@
 .endmacro
 
 ;;;; WritePPUBytes
-;; 4-byte stack frame: 4 args, 0 locals, 0 return
+;; 2-byte stack frame: 2 args, 0 locals, 0 return
+;; Expects P to hold the address to write to
 ;; Writes a given number of bytes from a given byte buffer address to the PPU
 ;; Arg0: LenLo
 ;; Arg1: LenHi
-;; PLO in AddressLo
-;; PHI in AddressHi
 .proc WritePpuBytes
     len = SW_STACK-1
     LDX SP
@@ -110,7 +236,7 @@
   LDA #>arg_len
   PHA_SP
   JSR WritePpuBytes
-  PLN_SP $02
+  PLN_SP 2
 .endmacro
 ;;;;
 
