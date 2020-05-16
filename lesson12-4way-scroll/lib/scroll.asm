@@ -236,31 +236,35 @@
     .repeat 3
       LSR A
     .endrepeat
-
     ;; Write the line ABOVE ppu_scroll_y- if it underflows ensure it wraps to 29
-    SEC
-    SBC #$01
-    BCS within_range ;; branch when no underflow
+    TAX
+    DEX
+    TXA
+    BPL within_range ;; branch when no underflow
     LDA #$1D ;; Underflow to 29
   within_range:
     ;; NameTable offset is 32 bytes per row, we need to multiply by 32 to get the nametable addr
-    LDX #$00
-    STX r0
+    STA r0
+    LDA #$00
+    STA r1
     CLC
     .repeat 5
-      ROL A ;; A holds the low byte of A*32
-      ROL r0 ;; r0 holds the high byte of A*32
+      ROL r0 ;; r0 holds the low byte of A*32
+      ROL r1 ;; r1 holds the high byte of A*32
     .endrepeat
-    TAX ;; PPU address is aligned on 256-byte boundary so the low byte is the same
-    LDA r0
-    ;; Carry is already cleared from rotating a 0 left out of r0 above
-    ADC #$20 ;; high byte of ppu nametable0 address
-    TAY ;; X and Y now hold addr-lo and addr-hi
-    JSR SetPPUAddress
-
     LDA #$00 ;; Increment by 1 each write
     STA PPUCTRL
 
+    ;; Next set PPU address of 1-32 bytes, in the near nametable
+    LDA PPUSTATUS
+    LDA r1
+    CLC
+    ADC #>PPU_ADDR_NAMETABLE0
+    STA PPUADDR
+    LDA r0
+    STA PPUADDR
+
+    ;; Write
     Call_WritePPUBytes scroll_buffer_top_name, $20 ;; 32 bytes
     RTS
 .endproc
@@ -281,24 +285,28 @@
     .endrepeat
   within_range:
     ;; NameTable offset is 32 bytes per row so multiply by 32 per coarse scroll_y
-    LDX #$00
-    STX r0
+    STA r0
+    LDA #$00
+    STA r1
     CLC
     .repeat 5
-      ROL A ;; A holds the low byte of A*32
-      ROL r0 ;; r0 holds the high byte of A*32
+      ROL r0 ;; r0 holds the low byte of A*32
+      ROL r1 ;; r1 holds the high byte of A*32
     .endrepeat
-    TAX ;; PPU address is aligned on 256-byte boundary so the low byte is the same
-    LDA r0
-    ;; Carry is already cleared from rotating a 0 left out of r0 above
-    ADC #$20 ;; high byte of ppu nametable0 address
-    TAY ;; X and Y now hold addr-lo and addr-hi
-    JSR SetPPUAddress
 
     LDA #$00 ;; Increment by 1 each write
     STA PPUCTRL
 
-    Call_WritePPUBytes scroll_buffer_bottom_name, $20 ;; 32 bytes
+    ;; set PPU address of 1-32 bytes, in the near nametable
+    LDA PPUSTATUS
+    LDA r1
+    CLC
+    ADC #>PPU_ADDR_NAMETABLE0
+    STA PPUADDR
+    LDA r0
+    STA PPUADDR
+    Call_WritePPUBytes scroll_buffer_bottom_name, $20
+
     RTS
   RTS
 .endproc
@@ -406,30 +414,34 @@
       continue:
         BMI negative
       positive:
-        LDA cam_dy
-        AND #%00000111
-        STA r0
-        LDA cam_y
-        AND #%00000111
-        CLC
-        ADC r0
-        CMP #$08
-        BCC @when_within_same_tile
-      @when_new_tile:
-        JSR UpdateBottomScrollName ;; Positive Y means towards the bottom
-        LDA cam_dy
-        AND #%00000111
-        STA r0
-        LDA cam_y
-        AND #%00011111
-        CLC
-        ADC r0
-        CMP #$20
-        BCC @when_within_same_region
-      @when_new_region:
-        JSR UpdateTopScrollAttr
-      @when_within_same_region:
-      @when_within_same_tile:
+       ;;Update every step to be safe
+       ;; TODO: Work out when updates need to occur for a camera with no extra nametable to play
+       JSR UpdateBottomScrollName ;; Positive Y means towards the bottom
+
+       ;; LDA cam_dy
+       ;; AND #%00000111
+       ;; STA r0
+       ;; LDA cam_y
+       ;; AND #%00000111
+       ;; CLC
+       ;; ADC r0
+       ;; CMP #$08
+       ;; BCC @when_within_same_tile
+      ;;@when_new_tile:
+       ;; JSR UpdateBottomScrollName ;; Positive Y means towards the bottom
+       ;; LDA cam_dy
+       ;; AND #%00000111
+       ;; STA r0
+       ;; LDA cam_y
+       ;; AND #%00011111
+       ;; CLC
+       ;; ADC r0
+       ;; CMP #$20
+       ;; BCC @when_within_same_region
+      ;;@when_new_region:
+       ;; JSR UpdateTopScrollAttr
+      ;;@when_within_same_region:
+      ;;@when_within_same_tile:
       @update_cam:
         LDA cam_dy
         CLC
@@ -453,27 +465,31 @@
       negative:
         STA_TWOS_COMP cam_dy
 
-        LDA cam_dy
-        AND #%00000111
-        STA r0
-        LDA cam_y
-        AND #%00000111
-        SEC
-        SBC r0
-        BPL @when_within_same_tile
-      @when_new_tile:
+        ;;Update every step to be safe
+        ;; TODO: Work out when updates need to occur for a camera with no extra nametable to play
         JSR UpdateTopScrollName ;; Decreasing Y means towards the top
-        LDA cam_dy
-        AND #%00000111
-        STA r0
-        LDA cam_y
-        AND #%00011111
-        SEC
-        SBC r0
-        BPL @when_within_same_region
-        JSR UpdateBottomScrollAttr
-      @when_within_same_region:
-      @when_within_same_tile:
+
+        ;;LDA cam_dy
+        ;;AND #%00000111
+        ;;STA r0
+        ;;LDA cam_y
+        ;;AND #%00000111
+        ;;SEC
+        ;;SBC r0
+        ;;BPL @when_within_same_tile
+      ;;@when_new_tile:
+        ;;JSR UpdateTopScrollName ;; Decreasing Y means towards the top
+        ;;LDA cam_dy
+        ;;AND #%00000111
+        ;;STA r0
+        ;;LDA cam_y
+        ;;AND #%00011111
+        ;;SEC
+        ;;SBC r0
+        ;;BPL @when_within_same_region
+        ;;JSR UpdateBottomScrollAttr
+      ;;@when_within_same_region:
+      ;;@when_within_same_tile:
       @update_cam:
         LDA cam_y
         SEC

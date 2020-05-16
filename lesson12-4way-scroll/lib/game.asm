@@ -331,6 +331,98 @@ MIN_X_SCROLL_SPEED = $01
     RTS
 .endproc
 
+.proc FillTopNameBufferFromPage
+    LDA cam_x
+    PHA_SP
+    LDA cam_x+1
+    PHA_SP
+
+    LDA cam_y
+    SEC
+    SBC #$08
+    PHA_SP ;; Top buffer starts 8 pixels top of camera
+    LDA cam_y+1
+    SBC #$00
+    PHA_SP
+
+    LDA #$08
+    PHA_SP ;; name table byte is 8 pixels wide
+    PHA_SP ;; name table byte is 8 pixels tall
+    PHN_SP 3 ;; Add space for ret vals
+    JSR CoordsWorld2Page
+    PHN_SP 2 ;; Add space for ret vals
+    JSR GetBytePtrFromPage
+    LDA #<scroll_buffer_top_name
+    PHA_SP
+    LDA #>scroll_buffer_top_name
+    PHA_SP
+    LDA #$21 ;; scroll buffer len is 33 bytes
+    PHA_SP
+    JSR FillRowFromPage
+    PLN_SP 14 ;; Pop all
+
+    ;; Now rotate the buffer based on scroll-x
+    LDA #<scroll_buffer_top_name
+    STA PLO ; Src buffer lo
+    LDA #>scroll_buffer_top_name
+    STA PHI ;; Src buffer hi
+    LDA #$21
+    STA r0 ;; Len is 33
+    LDA cam_x
+    .repeat 3
+      LSR A
+    .endrepeat
+    STA r1 ;; Shift by scroll_x tiles
+    JSR RotateBufferRight
+    RTS
+.endproc
+
+.proc FillBottomNameBufferFromPage
+    LDA cam_x
+    PHA_SP
+    LDA cam_x+1
+    PHA_SP
+
+    LDA cam_y
+    CLC
+    ADC #$08
+    PHA_SP ;; Top buffer starts 8 pixels past bottom of camera
+    LDA cam_y+1
+    ADC #$01
+    PHA_SP
+
+    LDA #$08
+    PHA_SP ;; name table byte is 8 pixels wide
+    PHA_SP ;; name table byte is 8 pixels tall
+    PHN_SP 3 ;; Add space for ret vals
+    JSR CoordsWorld2Page
+    PHN_SP 2 ;; Add space for ret vals
+    JSR GetBytePtrFromPage
+    LDA #<scroll_buffer_bottom_name
+    PHA_SP
+    LDA #>scroll_buffer_bottom_name
+    PHA_SP
+    LDA #$21 ;; scroll buffer len is 33 bytes
+    PHA_SP
+    JSR FillRowFromPage
+    PLN_SP 14 ;; Pop all
+
+    ;; Now rotate the buffer based on scroll-x
+    LDA #<scroll_buffer_bottom_name
+    STA PLO ; Src buffer lo
+    LDA #>scroll_buffer_bottom_name
+    STA PHI ;; Src buffer hi
+    LDA #$21
+    STA r0 ;; Len is 33
+    LDA cam_x
+    .repeat 3
+      LSR A
+    .endrepeat
+    STA r1 ;; Shift by scroll_x tiles
+    JSR RotateBufferRight
+    RTS
+.endproc
+
 .proc FillLeftAttrBufferFromPage
     LDA cam_x
     SEC

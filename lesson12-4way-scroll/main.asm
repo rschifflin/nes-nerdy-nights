@@ -73,6 +73,8 @@ clear_stack:
 
   JSR FillLeftNameBufferFromPage
   JSR FillRightNameBufferFromPage
+  JSR FillTopNameBufferFromPage
+  JSR FillBottomNameBufferFromPage
 
   ;; Initialize speed to 1
   LDA #$01
@@ -145,134 +147,197 @@ NMI:
 .include "lib/game.asm"
 
 run:
-  ;; Handle per-frame logic
-  ;; Loop if we've handled this frame already
-  LDA frame_counter
-  CMP current_frame
-  BEQ run
-  STA current_frame
+    ;; Handle per-frame logic
+    ;; Loop if we've handled this frame already
+    LDA frame_counter
+    CMP current_frame
+    BEQ run
+    STA current_frame
 
-  .scope camera_buffers
-      LDA #<attribute_table_header
-      STA PLO
-      LDA #>attribute_table_header
-      STA PHI
-      JSR LoadPageTable
-    check_left_attr:
-      LDA scroll_buffer_status
-      AND #SCROLL_BUFFER_LEFT_ATTR_READY
-      BNE check_right_attr
-      JSR FillLeftAttrBufferFromPage
-      LDA scroll_buffer_status
-      ORA #SCROLL_BUFFER_LEFT_ATTR_READY
-      STA scroll_buffer_status
+    ;; Read controller input
+    JSR UpdateController
+    .scope scroll
+        LDA p1_controller
+        AND #CONTROLLER_A
+        BEQ a_done
 
-    check_right_attr:
-      LDA scroll_buffer_status
-      AND #SCROLL_BUFFER_RIGHT_ATTR_READY
-      BNE check_left_name
-      JSR FillRightAttrBufferFromPage
-      LDA scroll_buffer_status
-      ORA #SCROLL_BUFFER_RIGHT_ATTR_READY
-      STA scroll_buffer_status
+        LDA scroll_speed
+        CLC
+        ADC #01
+        CMP #MAX_X_SCROLL_SPEED + 1
+        BCC @scroll_speed_valid
+        LDA #MAX_X_SCROLL_SPEED
+      @scroll_speed_valid:
+        STA scroll_speed
+      a_done:
 
-      LDA #<name_table_header
-      STA PLO
-      LDA #>name_table_header
-      STA PHI
-      JSR LoadPageTable
-    check_left_name:
-      LDA scroll_buffer_status
-      AND #SCROLL_BUFFER_LEFT_NAME_READY
-      BNE check_right_name
-      JSR FillLeftNameBufferFromPage
-      LDA scroll_buffer_status
-      ORA #SCROLL_BUFFER_LEFT_NAME_READY
-      STA scroll_buffer_status
-    check_right_name:
-      LDA scroll_buffer_status
-      AND #SCROLL_BUFFER_RIGHT_NAME_READY
-      BNE done
-      JSR FillRightNameBufferFromPage
-      LDA scroll_buffer_status
-      ORA #SCROLL_BUFFER_RIGHT_NAME_READY
-      STA scroll_buffer_status
-    done:
-  .endscope
+        LDA p1_controller
+        AND #CONTROLLER_B
+        BEQ b_done
 
-scroll_buffer_done:
-  ;; Read controller input
-  JSR UpdateController
-  .scope scroll
-      LDA p1_controller
-      AND #CONTROLLER_A
-      BEQ a_done
+        LDA scroll_speed
+        SEC
+        SBC #01
+        CMP #MIN_X_SCROLL_SPEED
+        BCS @scroll_speed_valid
+        LDA #MIN_X_SCROLL_SPEED
+      @scroll_speed_valid:
+        STA scroll_speed
+      b_done:
 
-      LDA scroll_speed
-      CLC
-      ADC #01
-      CMP #MAX_X_SCROLL_SPEED + 1
-      BCC @scroll_speed_valid
-      LDA #MAX_X_SCROLL_SPEED
-    @scroll_speed_valid:
-      STA scroll_speed
-    a_done:
+        LDA p1_controller
+        AND #CONTROLLER_RIGHT
+        BEQ right_done
 
-      LDA p1_controller
-      AND #CONTROLLER_B
-      BEQ b_done
+        LDA scroll_speed
+        STA cam_dx
+      right_done:
+        LDA p1_controller
+        AND #CONTROLLER_LEFT
+        BEQ left_done
 
-      LDA scroll_speed
-      SEC
-      SBC #01
-      CMP #MIN_X_SCROLL_SPEED
-      BCS @scroll_speed_valid
-      LDA #MIN_X_SCROLL_SPEED
-    @scroll_speed_valid:
-      STA scroll_speed
-    b_done:
+        LDA scroll_speed
+        STA cam_dx
+        STA_TWOS_COMP cam_dx
+      left_done:
 
-      LDA p1_controller
-      AND #CONTROLLER_RIGHT
-      BEQ right_done
+        ;; Note, Y is inverted so 'up' on the controller corresponds to decreasing Y
+        LDA p1_controller
+        AND #CONTROLLER_UP
+        BEQ up_done
 
-      LDA scroll_speed
-      STA cam_dx
-    right_done:
-      LDA p1_controller
-      AND #CONTROLLER_LEFT
-      BEQ left_done
+        LDA scroll_speed
+        STA cam_dy
+        STA_TWOS_COMP cam_dy
+      up_done:
 
-      LDA scroll_speed
-      STA cam_dx
-      STA_TWOS_COMP cam_dx
-    left_done:
+        ;; Note, Y is inverted so 'down' on the controller corresponds to increasing Y
+        LDA p1_controller
+        AND #CONTROLLER_DOWN
+        BEQ down_done
 
-      ;; Note, Y is inverted so 'up' on the controller corresponds to decreasing Y
-      LDA p1_controller
-      AND #CONTROLLER_UP
-      BEQ up_done
+        LDA scroll_speed
+        STA cam_dy
+      down_done:
+    .endscope
 
-      LDA scroll_speed
-      STA cam_dy
-      STA_TWOS_COMP cam_dy
-    up_done:
+    JSR CheckBounds
 
-      ;; Note, Y is inverted so 'down' on the controller corresponds to increasing Y
-      LDA p1_controller
-      AND #CONTROLLER_DOWN
-      BEQ down_done
+    .scope check_x_movement
+      x_movement:
+        LDA cam_dx
+        BMI prepare_left
+        BEQ done
+      prepare_right:
+        LDA scroll_buffer_status
+        AND #SCROLL_BUFFER_RIGHT_ATTR_READY
+        BNE @check_name
 
-      LDA scroll_speed
-      STA cam_dy
-    down_done:
+        LDA #<attribute_table_header
+        STA PLO
+        LDA #>attribute_table_header
+        STA PHI
+        JSR LoadPageTable
 
-  .endscope
-  JSR CheckBounds
-  LDA render_flags
-  AND #RENDER_FLAG_SCROLL_UNLOCKED
-  STA render_flags ;; Allows NMI to use cam_dx/cam_dy to scroll its registers
-  JMP run
+        JSR FillRightAttrBufferFromPage
+        LDA scroll_buffer_status
+        ORA #SCROLL_BUFFER_RIGHT_ATTR_READY
+        STA scroll_buffer_status
+
+      @check_name:
+        LDA scroll_buffer_status
+        AND #SCROLL_BUFFER_RIGHT_NAME_READY
+        BNE done
+
+        LDA #<name_table_header
+        STA PLO
+        LDA #>name_table_header
+        STA PHI
+        JSR LoadPageTable
+
+        JSR FillRightNameBufferFromPage
+        LDA scroll_buffer_status
+        ORA #SCROLL_BUFFER_RIGHT_NAME_READY
+        STA scroll_buffer_status
+        JMP done
+
+      prepare_left:
+        LDA scroll_buffer_status
+        AND #SCROLL_BUFFER_LEFT_ATTR_READY
+        BNE @check_name
+
+        LDA #<attribute_table_header
+        STA PLO
+        LDA #>attribute_table_header
+        STA PHI
+        JSR LoadPageTable
+
+        JSR FillLeftAttrBufferFromPage
+        LDA scroll_buffer_status
+        ORA #SCROLL_BUFFER_LEFT_ATTR_READY
+        STA scroll_buffer_status
+
+      @check_name:
+        LDA scroll_buffer_status
+        AND #SCROLL_BUFFER_LEFT_NAME_READY
+        BNE done
+
+        LDA #<name_table_header
+        STA PLO
+        LDA #>name_table_header
+        STA PHI
+        JSR LoadPageTable
+
+        JSR FillLeftNameBufferFromPage
+        LDA scroll_buffer_status
+        ORA #SCROLL_BUFFER_LEFT_NAME_READY
+        STA scroll_buffer_status
+      done:
+    .endscope
+
+    .scope check_y_movement
+        LDA cam_dy
+        BMI prepare_up
+        BEQ done
+      prepare_down:
+        LDA scroll_buffer_status
+        AND #SCROLL_BUFFER_BOTTOM_NAME_READY
+        BNE done
+
+        LDA #<name_table_header
+        STA PLO
+        LDA #>name_table_header
+        STA PHI
+        JSR LoadPageTable
+
+        JSR FillBottomNameBufferFromPage
+        LDA scroll_buffer_status
+        ORA #SCROLL_BUFFER_BOTTOM_NAME_READY
+        STA scroll_buffer_status
+        JMP done
+
+      prepare_up:
+        LDA scroll_buffer_status
+        AND #SCROLL_BUFFER_TOP_NAME_READY
+        BNE done
+
+        LDA #<name_table_header
+        STA PLO
+        LDA #>name_table_header
+        STA PHI
+        JSR LoadPageTable
+
+        JSR FillTopNameBufferFromPage
+        LDA scroll_buffer_status
+        ORA #SCROLL_BUFFER_TOP_NAME_READY
+        STA scroll_buffer_status
+      done:
+    .endscope
+
+    LDA render_flags
+    AND #RENDER_FLAG_SCROLL_UNLOCKED
+    STA render_flags ;; Allows NMI to use cam_dx/cam_dy and scroll buffers to scroll its registers
+    JMP run
 
 .segment "IVT"
   .addr NMI     ;; Non-maskable interrupt (ie VBLANK)
@@ -294,7 +359,7 @@ name_table_header:
   .byte 32 ;; 32 bytes wide per page
   .byte 30 ;; 30 bytes high per page
   .word 960 ;; 960 bytes total per page
-  .word 2880 ;; 2880 bytes total per row
+  .word 3840 ;; 3840 bytes total per row
   .addr name_table
 
 attribute_table:
@@ -306,7 +371,7 @@ attribute_table_header:
   .byte 8 ;; 8 bytes wide per page
   .byte 8 ;; 8 bytes high per page
   .word 64 ;; 64 bytes total per page
-  .word 192 ;; 192 bytes total per row
+  .word 256 ;; 256 bytes total per row
   .addr attribute_table
 
 sprites:
