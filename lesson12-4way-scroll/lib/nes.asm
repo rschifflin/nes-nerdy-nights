@@ -35,73 +35,76 @@
 .endproc
 ;;;;
 
-;;;;WritePPUNameColumn
-;; 3-byte stack: 3 args, 0 return
+;;;;WritePPUAttrColumn
+;; 4-byte stack: 4 args, 0 return
 ;; Expects P to hold address of buffer to read from
 ;; Expects r0 to hold length of buffer to read from
-;; PPUTargetLo is generated from the given offsets
-;; Sets PPUCTRL to INC32 and PPUADDR to ppuTargetLo/Hi
+;; Sets PPUADDR to ppuTargetLo/Hi
 ;; NOTE: If we mirror horizontally, this method can write
-;; a logical column through both vertical name tables.
+;; a logical column through both vertical attribute tables.
 ;; If we mirror vertically, this method writes into
-;; the mirrored nametable, causing a wrap effect.
-.proc WritePPUNameColumn
-    ;; Stack frame
+;; the mirrored attribute table, causing a wrap effect.
+.proc WritePPUAttrColumn
+    ;; Arguments
+    ppuTargetLo  = SW_STACK-3
     ppuTargetHi  = SW_STACK-2
     scrollX      = SW_STACK-1
     scrollY      = SW_STACK-0
     bufferLen    = r0
+    srcLo        = PLO
+    srcHi        = PHI
+
+    ;; Locals
     columnLen    = r1
 
     LDX SP
-    .repeat 3
+    ;; Transform scroll pixel values into coarse scroll region values, range [0,7]
+    .repeat 5
       LSR scrollX,X
       LSR scrollY,X
     .endrepeat
-    ;; Transforms scroll pixel values into coarse scroll tile values
 
-    LDA #$1E ;; Max rows in a name column
+    LDA ppuTargetLo,X
+    CLC
+    ADC scrollX,X
+    STA ppuTargetLo,X ;; Offset target to the correct column
+    BCC @no_carry
+    INC ppuTargetHi,X
+  @no_carry:
+    LDA #$08 ;; Max rows in an attr column
     SEC
     SBC scrollY,X ;; Minus offset rows aka coarse scroll y
-    STA columnLen ;; r1 now holds # of rows remaining for this page after we offset
-                  ;; NOTE: Guaranteed to be > 0 since scroll_y is <= 239
+    STA columnLen ;; r1 now holds # of rows remaining for this table after we offset
+                  ;; NOTE: Guaranteed to be > 0 since coarse scroll_y has range [0,7]
 
-    LDA #PPUCTRL_INC32
+    ;; Multiply scrolly regions by 8 to create row byte offset.
+    CLC
+    LDA scrollY,X
+    .repeat 2
+      ROL A
+    .endrepeat
+    ADC ppuTargetLo,X
+    STA scrollX,X ;; repurpose scrollX as targetLoWithOffset
+    LDA ppuTargetHi,X
+    ADC #$00 ;; Add carry if needed
+    STA scrollY,X ;; repurpose scrollY as targetHiWithOffset
+
+    LDA #$00 ;; inc by 1 each write. Ignore all other settings
     STA PPUCTRL
 
-    LDX SP
-    ;; Set PPUADDR based on given Hi and coarse scroll offsets
-    LDA scrollY,X
-    BEQ target_skip ;; If no scroll-y, no calculation needed
-    LDA scrollX,X
-    LDY ppuTargetHi,X
-  target_loop:
-    CLC
-    ADC #$20 ;; Add 32 columns of bytes for each row offset
-    BCC @no_carry
-    INY ;; Bump ppu target hi on carry
-  @no_carry:
-    DEC scrollY,X
-    BNE target_loop
-    JMP target_done
-  target_skip:
-    LDA scrollX,X
-    LDY ppuTargetHi,X
-  target_done:
-    LDX PPUSTATUS ;; Prepare to change PPU Address
-    STY PPUADDR   ;; PPU high = targetHi from calculated above
-    STA PPUADDR   ;; PPU low =  targetLo from calculated above
     ;; Fall into the Write proc as a tail call
-
     ;;;; Write
     ;; Expects P=src, r0=buffer_len, r1=column_len
     .proc Write
-        ;; Stack frame
-        ppuTargetHi        = SW_STACK-2
-        ppuTargetLo        = SW_STACK-1
-        _unused            = SW_STACK-0
-        bufferLen          = r0
-        columnLen          = r1
+        ;; Arguments
+        ppuTargetLo           = SW_STACK-3
+        ppuTargetHi           = SW_STACK-2
+        ppuTargetLoWithOffset = SW_STACK-1
+        ppuTargetHiWithOffset = SW_STACK-0
+        bufferLen             = r0
+        columnLen             = r1
+        srcLo                 = PLO
+        srcHi                 = PHI
 
         ;; Guard clause against empty buffers
         LDA bufferLen
@@ -109,22 +112,39 @@
         RTS
       continue:
 
-        ;; Count down and write until buffer len is empty or name table limit is hit
+        ;; Count down and write until buffer len is empty or attr table limit is hit
         LDX SP
         LDY #$00
       loop:
+        ;; Set PPU addr
+        LDA PPUSTATUS
+        LDA ppuTargetHiWithOffset,X
+        STA PPUADDR
+        LDA ppuTargetLoWithOffset,X
+        STA PPUADDR
+
+        ;; Write attr byte
         LDA (PLO),Y
         STA PPUDATA
+
+        ;; Prepare next PPU Addr
+        LDA ppuTargetLoWithOffset,X
+        CLC
+        ADC #$08
+        STA ppuTargetLoWithOffset,X
+        BCC @no_carry
+        INC ppuTargetHiWithOffset,X
+      @no_carry:
         INY
         DEC bufferLen
         BNE when_nonempty
         RTS ;; len is empty, job is done
       when_nonempty:
         DEC columnLen ;; Y-scroll never exceeds 239, thus columnLen is always nonzero to start
-        BNE loop ;; Loop while there's still space in this nametable column to write
-        ;; Else, out of nametable space with data still to be written.
+        BNE loop ;; Loop while there's still space in this attr table column to write
+        ;; Else, out of attr table space with data still to be written.
 
-        LDA #$1E ;; Fresh 30 bytes of nametable space for the column
+        LDA #$08 ;; Fresh 8 bytes of attr table space for the column
         STA columnLen
 
         ;; Advance down the buffer Y bytes for the next call
@@ -138,25 +158,23 @@
 
         ;; Swap nametables
         LDA ppuTargetHi,X
-        CMP #>PPU_ADDR_NAMETABLE2
-        BCS when_far_name_table
-      when_near_name_table:
+        CMP #>PPU_ADDR_ATTRTABLE2
+        BCS when_far_attr_table
+      when_near_attr_table:
         CLC
         ADC #$08
         JMP swap_done
-      when_far_name_table:
+      when_far_attr_table:
         SEC
         SBC #$08
       swap_done:
         STA ppuTargetHi,X
 
-        ;; Change PPUADDR
-        LDY PPUSTATUS ;; Prepare to change PPU Address
-        STA PPUADDR   ;; Set PPU High
+        ;; Reset offsets to top of column
+        STA ppuTargetHiWithOffset,X
         LDA ppuTargetLo,X
-        STA PPUADDR   ;; Set PPU Low
-
-        ;; Tail call recursion
+        STA ppuTargetLoWithOffset,X
+        ;; Tail call
         JMP Write
     .endproc
 .endproc
@@ -187,6 +205,25 @@
   LDA #>ptr_arg
   STA OAMDMA ; Tell PPU the high byte of a memory region for DMA, then begin DMA
 .endmacro
+
+
+;;;; WritePPUNameColumn
+;; Expects P to hold a pointer to a nametable column buffer
+;; Expects r0 to hold buffer len
+.proc WritePPUNameColumn
+    LDA #PPUCTRL_INC32
+    STA PPUCTRL
+
+    LDY #$00
+    LDX r0
+    loop:
+      LDA (PLO),Y
+      STA PPUDATA
+      INY
+      DEX
+      BNE loop
+    RTS
+.endproc
 
 ;;;; WritePPUBytes
 ;; 2-byte stack frame: 2 args, 0 locals, 0 return

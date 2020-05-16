@@ -97,3 +97,112 @@
     RTS
 .endproc
 ;;;;
+
+;;;; RotateBufferRight
+;; 0-byte stack frame: 0 args, 0 return
+;; Expects PLO and PHI to hold the address of a buffer
+;; Expects r0 to hold the len of the buffer
+;; Expects r1 to hold the amount to rotate by
+.proc RotateBufferRight
+    ;; Arguments
+    srcLo       = PLO
+    srcHi       = PHI
+    bufferLen   = r0
+    shiftAmount = r1
+
+    ;; Locals
+    temp = STACK+4
+    swap = STACK+3
+    counter = STACK+2
+    startIndex = STACK+1
+
+    ;; Guard clause
+    LDA bufferLen
+    BEQ @early_return
+    LDA shiftAmount
+    BNE continue
+  @early_return:
+    RTS
+  continue:
+
+    ;; Adjust shiftAmount until its range [0,bufferLen)
+    LDA shiftAmount
+  @modulo_buffer_len:
+    SEC
+    SBC bufferLen
+    BCC @modulo_done
+  @modulo_loop:
+    TAX
+    SEC
+    SBC bufferLen
+    BCS @modulo_loop
+    STX shiftAmount
+  @modulo_done:
+
+    ;; Set up stack locals
+    PHA ;; temp
+    PHA ;; swap
+    PHA ;; counter
+    PHA ;; startIndex
+    TSX
+
+    ;; Main loop
+    LDA bufferLen
+    STA counter,X
+    LDY #$FF
+  shift_from_index:
+    INY
+    TYA
+    STA startIndex,X
+    LDA (srcLo),Y
+    STA temp,X
+  loop:
+
+    ;; Add index and wrap if needed
+    TYA
+    CLC
+    ADC shiftAmount
+    BCC @when_no_overflow
+  ;; In the rare case we overflow, we manually wrap. Correct wrap position is shiftAmount - (bufferLen - Y)
+    TYA
+    STA swap,X
+    LDA bufferLen
+    SEC
+    SBC swap,X
+    STA swap,X
+    LDA shiftAmount
+    SEC
+    SBC swap,X
+    TAY
+    JMP @no_wrap
+  ;; Otherwise, apply wrap if needed as normal
+  @when_no_overflow:
+    TAY
+    SEC
+    SBC bufferLen
+    BCC @no_wrap
+    TAY
+  @no_wrap:
+    LDA (srcLo),Y
+    STA swap,X
+    LDA temp,X
+    STA (srcLo),Y
+
+    ;; After bufferLen writes, we're done
+    DEC counter,X
+    BEQ done
+
+    TYA
+    CMP startIndex,X
+    BEQ shift_from_index ;; If we've come full circle to the start index, repeat the process starting from start+1
+                         ;; Else, continue by preparing the next temp and looping
+    LDA swap,X
+    STA temp,X
+    JMP loop
+  done:
+    PLA ;; startIndex
+    PLA ;; counter
+    PLA ;; swap
+    PLA ;; temp
+    RTS
+.endproc

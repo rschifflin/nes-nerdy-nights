@@ -32,5 +32,5 @@ render_flags:      .res 1 ;; For miscellaneous flags
 state:         .res 1
 frame_counter: .res 1
 current_frame: .res 1
-page_table:    .tag PageTable
+page_table:    .res 10 ;; TODO: .tag PageTable but solve dependency conflicts with tests
 ;;;;

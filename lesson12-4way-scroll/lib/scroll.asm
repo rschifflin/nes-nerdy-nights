@@ -18,48 +18,44 @@
     CPX #$20 ;; 32 tiles = 256 bytes, which means we wrapped around to 0
     BNE when_nonzero
   when_zero: ;; Special case- We want to buffer bytes from the left edge of the current nametable
+    LDA #$00
     LDX #>PPU_ADDR_NAMETABLE0
     LDY #>PPU_ADDR_NAMETABLE1
     JMP set_ppu_target_hi
   when_nonzero:
+    TXA
     LDX #>PPU_ADDR_NAMETABLE1
     LDY #>PPU_ADDR_NAMETABLE0
   set_ppu_target_hi:
+    STA PLO
     LDA render_flags
     AND #RENDER_FLAG_NAMETABLES_FLIPPED
     BNE when_nametables_flipped
   when_nametables_default:
     TXA
-    PHA_SP ;; PPUTargetHi
     JMP write
   when_nametables_flipped:
     TYA
-    PHA_SP ;; PPUTargetHi
   write:
-    LDA cam_x
-    CLC
-    ADC #$08
-    PHA_SP ;; scrollX
-    LDA ppu_scroll_y
-    PHA_SP ;; scrollY
+    STA PHI
+    LDX PPUSTATUS
+    STA PPUADDR
+    LDA PLO
+    STA PPUADDR
+
     LDA #<scroll_buffer_right_name
     STA PLO
     LDA #>scroll_buffer_right_name
     STA PHI
     LDA #$1E
-    STA r0 ;; 30 bytes in the scroll buffer
+    STA r0
     JSR WritePPUNameColumn
-    PLN_SP 3
     RTS
 .endproc
 
 .proc UpdateRightScrollAttr
     LDA #$00
     STA scroll_buffer_status
-
-    LDA #<PPU_ADDR_ATTRTABLE0
-    PHA_SP ;; ppuTargetLo
-           ;; Regardless of attrtable, targetLo is always c0
 
     LDA cam_x
     .repeat 5
@@ -69,14 +65,19 @@
     INX
     CPX #$08 ;; 8 regions = 256 pixels, we wrapped around to 0
     BNE when_nonzero
-  when_zero:
+  when_zero: ;; Special case- We want to buffer bytes from the left edge of the current nametable
+    LDA #$C0
     LDX #>PPU_ADDR_ATTRTABLE0
     LDY #>PPU_ADDR_ATTRTABLE1
     JMP set_ppu_target_hi
   when_nonzero:
+    TXA
+    CLC
+    ADC #$C0
     LDX #>PPU_ADDR_ATTRTABLE1
     LDY #>PPU_ADDR_ATTRTABLE0
   set_ppu_target_hi:
+    STA PLO
     LDA render_flags
     AND #RENDER_FLAG_NAMETABLES_FLIPPED
     BNE when_flipped
@@ -86,22 +87,32 @@
   when_flipped:
     TYA
   write:
-    PHA_SP ;; ppuTargetHi
-    LDA cam_x
-    CLC
-    ADC #$20 ;; 1 region right of the camera
-    PHA_SP ;; scrollX
-    LDA ppu_scroll_y
-    PHA_SP ;; scrollY
-    LDA #$08
-    STA r0 ;; bufferLen
-    LDA #<scroll_buffer_right_attr
-    STA PLO ;; srcLo
-    LDA #>scroll_buffer_right_attr
-    STA PHI ;; srcHi
-    JSR WritePPUAttrColumn
-    PLN_SP 4
+    STA PHI
+    LDA #$00
+    STA PPUCTRL
 
+    LDX #$00
+  loop:
+    LDA PPUSTATUS
+    LDA PHI
+    STA PPUADDR
+    LDA PLO
+    STA PPUADDR
+
+    LDA scroll_buffer_right_attr,X
+    STA PPUDATA
+    CPX #$07
+    BEQ done
+    INX
+
+    LDA PLO
+    CLC
+    ADC #$08
+    STA PLO
+    BCC loop
+    INC PHI
+    JMP loop
+  done:
     RTS
 .endproc
 
@@ -113,40 +124,43 @@
     .repeat 3
       LSR A
     .endrepeat
-    BNE when_nonzero
-  when_zero:
+    TAX
+    DEX
+    BPL when_non_negative
+  when_negative:
+    LDA #$1F
     LDX #$24
     LDY #$20
     JMP set_ppu_target_hi
-  when_nonzero:
+  when_non_negative:
+    TXA
     LDX #$20
     LDY #$24
   set_ppu_target_hi:
+    STA PLO
     LDA render_flags
     AND #RENDER_FLAG_NAMETABLES_FLIPPED
     BNE when_nametables_flipped
   when_nametables_default:
     TXA
-    PHA_SP ;; TargetHi
     JMP write
   when_nametables_flipped:
     TYA
-    PHA_SP ;; TargetHi
   write:
-    LDA cam_x
-    SEC
-    SBC #$08
-    PHA_SP ;; scrollX
-    LDA ppu_scroll_y
-    PHA_SP ;; scrollY
+    STA PHI
+    LDX PPUSTATUS
+    STA PPUADDR
+    LDA PLO
+    STA PPUADDR
+
     LDA #<scroll_buffer_left_name
     STA PLO
     LDA #>scroll_buffer_left_name
     STA PHI
     LDA #$1E
-    STA r0 ;; 30 bytes in the scroll buffer
+    STA r0
     JSR WritePPUNameColumn
-    PLN_SP 3
+
     RTS
 .endproc
 
@@ -158,48 +172,32 @@
     .repeat 5
       LSR A
     .endrepeat
-    BNE handle_nonzero
-  handle_zero: ;; Special case- We want to buffer bytes from the right edge of the opposite attr_table
-    .scope zero_case
-        LDA #$C7
-        STA PLO
-        LDA render_flags
-        AND #RENDER_FLAG_NAMETABLES_FLIPPED
-        BNE when_flipped
-      when_default:
-        LDA #>$27C7
-        STA PHI
-        JMP write
-      when_flipped:
-        LDA #>$23C7
-        STA PHI
-        JMP write
-    .endscope
-  handle_nonzero: ;; Common case- We want to buffer bytes from 1 byte left of the current attr_table
-    ;; AttrTable offset is at xxC0, perform the 1-byte-left subtraction here for effective address xxBF
-    .scope nonzero_case
-        LDA #$BF
-        STA PLO
-        LDA render_flags
-        AND #RENDER_FLAG_NAMETABLES_FLIPPED
-        BNE when_flipped
-      when_default:
-        LDA #>$23BF
-        STA PHI
-        JMP write
-      when_flipped:
-        LDA #>$27BF
-        STA PHI
-    .endscope
-  write:
-    LDA cam_x
-    .repeat 5
-      LSR A
-    .endrepeat
+    TAX
+    DEX
+    BPL when_non_negative
+  when_negative:
+    LDA #$C7
+    LDX #$27
+    LDY #$23
+    JMP set_ppu_target_hi
+  when_non_negative:
+    TXA
     CLC
-    ADC PLO
-    STA PLO ;; Overflow is impossible from 23C0 + 7
-
+    ADC #$C0
+    LDX #$23
+    LDY #$27
+  set_ppu_target_hi:
+    STA PLO
+    LDA render_flags
+    AND #RENDER_FLAG_NAMETABLES_FLIPPED
+    BNE when_nametables_flipped
+  when_nametables_default:
+    TXA
+    JMP write
+  when_nametables_flipped:
+    TYA
+  write:
+    STA PHI
     LDA #$00
     STA PPUCTRL
 
@@ -210,16 +208,21 @@
     STA PPUADDR
     LDA PLO
     STA PPUADDR
+
     LDA scroll_buffer_left_attr,X
     STA PPUDATA
+    CPX #$07
+    BEQ done
+    INX
+
     LDA PLO
     CLC
     ADC #$08
     STA PLO
-    INX
-    CPX #$08
-    BNE loop
-
+    BCC loop
+    INC PHI
+    JMP loop
+  done:
     RTS
 .endproc
 

@@ -223,6 +223,21 @@ MIN_X_SCROLL_SPEED = $01
     PHA_SP
     JSR FillColumnFromPage
     PLN_SP 14 ;; Pop all
+
+    ;; Now rotate the buffer based on scroll-y
+    LDA #<scroll_buffer_right_name
+    STA PLO ; Src buffer lo
+    LDA #>scroll_buffer_right_name
+    STA PHI ;; Src buffer hi
+    LDA #$1E
+    STA r0 ;; Len is 30
+    LDA ppu_scroll_y
+    .repeat 3
+      LSR A
+    .endrepeat
+    STA r1 ;; Shift by scroll_y tiles
+    JSR RotateBufferRight
+
     RTS
 .endproc
 
@@ -253,6 +268,21 @@ MIN_X_SCROLL_SPEED = $01
     PHA_SP
     JSR FillColumnFromPage
     PLN_SP 14 ;; Pop all
+
+    ;; Now rotate the buffer based on scroll-y
+    LDA #<scroll_buffer_right_attr
+    STA PLO ; Src buffer lo
+    LDA #>scroll_buffer_right_attr
+    STA PHI ;; Src buffer hi
+    LDA #$08
+    STA r0 ;; Len is 8
+    LDA ppu_scroll_y
+    .repeat 5
+      LSR A
+    .endrepeat
+    STA r1 ;; Shift by scroll_y regions
+    JSR RotateBufferRight
+
     RTS
 .endproc
 
@@ -283,6 +313,21 @@ MIN_X_SCROLL_SPEED = $01
     PHA_SP
     JSR FillColumnFromPage
     PLN_SP 14 ;; Pop all
+
+    ;; Now rotate the buffer based on scroll-y
+    LDA #<scroll_buffer_left_name
+    STA PLO ; Src buffer lo
+    LDA #>scroll_buffer_left_name
+    STA PHI ;; Src buffer hi
+    LDA #$1E
+    STA r0 ;; Len is 30
+    LDA ppu_scroll_y
+    .repeat 3
+      LSR A
+    .endrepeat
+    STA r1 ;; Shift by scroll_y tiles
+    JSR RotateBufferRight
+
     RTS
 .endproc
 
@@ -313,6 +358,21 @@ MIN_X_SCROLL_SPEED = $01
     PHA_SP
     JSR FillColumnFromPage
     PLN_SP 14 ;; Pop all
+
+    ;; Now rotate the buffer based on scroll-y
+    LDA #<scroll_buffer_left_attr
+    STA PLO ; Src buffer lo
+    LDA #>scroll_buffer_left_attr
+    STA PHI ;; Src buffer hi
+    LDA #$08
+    STA r0 ;; Len is 8
+    LDA ppu_scroll_y
+    .repeat 5
+      LSR A
+    .endrepeat
+    STA r1 ;; Shift by scroll_y regions
+    JSR RotateBufferRight
+
     RTS
 .endproc
 

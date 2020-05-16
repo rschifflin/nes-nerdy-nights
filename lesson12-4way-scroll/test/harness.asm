@@ -45,6 +45,34 @@ clear_stack:
   ;;;;
   JMP run
 
+.macro TEST subroutine
+  LDA TEST_COUNT_TOTAL_LO
+  CLC
+  ADC #$01
+  STA TEST_COUNT_TOTAL_LO
+  LDA TEST_COUNT_TOTAL_HI
+  ADC #$00
+  STA TEST_COUNT_TOTAL_HI
+  JSR TestClearExpectedValue
+  JSR TestClearActualValue
+  JSR subroutine
+.endmacro
+.macro SHOW
+  LDA TEST_COUNT_TOTAL_LO
+  LDX TEST_COUNT_TOTAL_HI
+  LDY TEST_RESERVED
+  INC TEST_SHOW
+  DEC TEST_SHOW
+.endmacro
+.macro BREAKPOINT
+  PHA
+  LDA #$02
+  STA TEST_SHOW
+  LDA #$00
+  STX TEST_SHOW
+  PLA
+.endmacro
+
 ;; Helpful libraries go here
 .include "../lib/core.asm"
 .include "../lib/stack.asm"
@@ -92,33 +120,6 @@ strings:
     STA PHI
     JMP TestClearLoop ;; tail call
 .endproc
-.macro TEST subroutine
-  LDA TEST_COUNT_TOTAL_LO
-  CLC
-  ADC #$01
-  STA TEST_COUNT_TOTAL_LO
-  LDA TEST_COUNT_TOTAL_HI
-  ADC #$00
-  STA TEST_COUNT_TOTAL_HI
-  JSR TestClearExpectedValue
-  JSR TestClearActualValue
-  JSR subroutine
-.endmacro
-.macro SHOW
-  LDA TEST_COUNT_TOTAL_LO
-  LDX TEST_COUNT_TOTAL_HI
-  LDY TEST_RESERVED
-  INC TEST_SHOW
-  DEC TEST_SHOW
-.endmacro
-.macro BREAKPOINT
-  PHA
-  LDA #$02
-  STA TEST_SHOW
-  LDA #$00
-  STX TEST_SHOW
-  PLA
-.endmacro
 
 run:
   LDA #$00
