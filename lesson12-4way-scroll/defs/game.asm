@@ -26,3 +26,12 @@
   offset_y          .byte ;; Col offset of referenced page byte
 .endstruct
 
+MAX_X_SCROLL = $0300
+MIN_X_SCROLL = $0000
+MAX_X_SCROLL_SPEED = $07
+MIN_X_SCROLL_SPEED = $01
+
+MAX_Y_SCROLL = $01E0
+MIN_Y_SCROLL = $0000
+MAX_Y_SCROLL_SPEED = $07
+MIN_Y_SCROLL_SPEED = $01

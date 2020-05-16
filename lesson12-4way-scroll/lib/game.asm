@@ -1,69 +1,126 @@
 ;;;; GAME-SPECIFIC SUBROUTINES AND MACROS
 
-MAX_X_SCROLL = $0300
-MIN_X_SCROLL = $0000
-MAX_X_SCROLL_SPEED = $07
-MIN_X_SCROLL_SPEED = $01
-
 ;; Ensures cam_x + cam_dx doesnt exceed world bounds; decrease cam_dx to the limit if so.
 .proc CheckBounds
-    LDA cam_dx
-    BEQ done
-    BMI negative
-  positive:
-    ;; Only time we care is when cam_x+1 is 1 short of the border and cam_x is within 8
-    LDA #<MAX_X_SCROLL
-    SEC
-    SBC cam_x
-    ROL r0 ;; Preserve the carry bit
+  .scope x_bounds
+      LDA cam_dx
+      BEQ done
+      BMI negative
+    positive:
+      ;; Only time we care is when cam_x+1 is 1 short of the border and cam_x is within 8
+      LDA #<MAX_X_SCROLL
+      SEC
+      SBC cam_x
+      ROL r0 ;; Preserve the carry bit
 
-    ;; If the lo byte of max - current is > scroll_speed_max, we know its safe
-    CMP #MAX_X_SCROLL_SPEED
-    BPL done ;; TODO: replace with uglier BEQ continue, BCS DONE for <= logic
-    TAY ;; Hold onto the lo difference
+      ;; If the lo byte of max - current is > scroll_speed_max, we know its safe
+      CMP #MAX_X_SCROLL_SPEED
+      BPL done ;; TODO: replace with uglier BEQ continue, BCS DONE for <= logic
+      TAY ;; Hold onto the lo difference
 
-    LDA #>MAX_X_SCROLL
-    ROR r0 ;; To retrieve the carry
-    SBC cam_x+1
+      LDA #>MAX_X_SCROLL
+      ROR r0 ;; To retrieve the carry
+      SBC cam_x+1
 
-    ;; If the hi byte of max - current is > 0, we know its safe
-    BNE done
+      ;; If the hi byte of max - current is > 0, we know its safe
+      BNE done
 
-    ;; Finally, take the min of the lo difference and cam_dx
-    TYA
-    CMP cam_dx
-    BEQ done ;; If they're equal, just use cam_dx as is
-    BCS done ;; If there's plenty of space, just use cam_dx as is
-    STA cam_dx ;; Otherwise, set cam_dx to the difference
-  negative:
-    STA_TWOS_COMP cam_dx
-    ;; Only time we care is when cam_x+1 is 1 short of the border and cam_x is within 8
-    LDA #<MIN_X_SCROLL
-    CLC
-    ADC cam_x
-    ROL r0 ;; Preserve the carry bit
+      ;; Finally, take the min of the lo difference and cam_dx
+      TYA
+      CMP cam_dx
+      BEQ done ;; If they're equal, just use cam_dx as is
+      BCS done ;; If there's plenty of space, just use cam_dx as is
+      STA cam_dx ;; Otherwise, set cam_dx to the difference
+    negative:
+      STA_TWOS_COMP cam_dx
+      ;; Only time we care is when cam_x+1 is 1 short of the border and cam_x is within 8
+      LDA #<MIN_X_SCROLL
+      CLC
+      ADC cam_x
+      ROL r0 ;; Preserve the carry bit
 
-    ;; If the lo byte of min + current is > scroll_speed_max, we know its safe
-    CMP #MAX_X_SCROLL_SPEED
-    BCS done_negative
-    TAY ;; Hold onto the lo difference
+      ;; If the lo byte of min + current is > scroll_speed_max, we know its safe
+      CMP #MAX_X_SCROLL_SPEED
+      BCS done_negative
+      TAY ;; Hold onto the lo difference
 
-    LDA #>MIN_X_SCROLL
-    ROR r0 ;; To retrieve the carry
-    ADC cam_x+1
+      LDA #>MIN_X_SCROLL
+      ROR r0 ;; To retrieve the carry
+      ADC cam_x+1
 
-    ;; If the hi byte of min + current is > 0, we know its safe
-    BNE done_negative
+      ;; If the hi byte of min + current is > 0, we know its safe
+      BNE done_negative
 
-    ;; Finally, take the min of the lo sum and cam_dx
-    TYA
-    CMP cam_dx
-    BEQ done_negative ;; If they're equal, just use cam_dx as is
-    BCS done_negative ;; If there's plenty of space, just use cam_dx as is
-    STA cam_dx ;; Otherwise, set cam_dx to the difference
-  done_negative:
-    STA_TWOS_COMP cam_dx
-  done:
+      ;; Finally, take the min of the lo sum and cam_dx
+      TYA
+      CMP cam_dx
+      BEQ done_negative ;; If they're equal, just use cam_dx as is
+      BCS done_negative ;; If there's plenty of space, just use cam_dx as is
+      STA cam_dx ;; Otherwise, set cam_dx to the difference
+    done_negative:
+      STA_TWOS_COMP cam_dx
+    done:
+  .endscope
+
+  .scope y_bounds
+      LDA cam_dy
+      BEQ done
+      BMI negative
+    positive:
+      ;; Only time we care is when cam_y+1 is 1 short of the border and cam_y is within 8
+      LDA #<MAX_Y_SCROLL
+      SEC
+      SBC cam_y
+      ROL r0 ;; Preserve the carry bit
+
+      ;; If the lo byte of max - current is > scroll_speed_max, we know its safe
+      CMP #MAX_Y_SCROLL_SPEED
+      BPL done ;; TODO: replace with uglier BEQ continue, BCS DONE for <= logic
+      TAY ;; Hold onto the lo difference
+
+      LDA #>MAX_Y_SCROLL
+      ROR r0 ;; To retrieve the carry
+      SBC cam_y+1
+
+      ;; If the hi byte of max - current is > 0, we know its safe
+      BNE done
+
+      ;; Finally, take the min of the lo difference and cam_dy
+      TYA
+      CMP cam_dy
+      BEQ done ;; If they're equal, just use cam_dy as is
+      BCS done ;; If there's plenty of space, just use cam_dy as is
+      STA cam_dy ;; Otherwise, set cam_dy to the difference
+    negative:
+      STA_TWOS_COMP cam_dy
+      ;; Only time we care is when cam_y+1 is 1 short of the border and cam_y is within 8
+      LDA #<MIN_Y_SCROLL
+      CLC
+      ADC cam_y
+      ROL r0 ;; Preserve the carry bit
+
+      ;; If the lo byte of min + current is > scroll_speed_max, we know its safe
+      CMP #MAX_Y_SCROLL_SPEED
+      BCS done_negative
+      TAY ;; Hold onto the lo difference
+
+      LDA #>MIN_Y_SCROLL
+      ROR r0 ;; To retrieve the carry
+      ADC cam_y+1
+
+      ;; If the hi byte of min + current is > 0, we know its safe
+      BNE done_negative
+
+      ;; Finally, take the min of the lo sum and cam_dy
+      TYA
+      CMP cam_dy
+      BEQ done_negative ;; If they're equal, just use cam_dy as is
+      BCS done_negative ;; If there's plenty of space, just use cam_dy as is
+      STA cam_dy ;; Otherwise, set cam_dy to the difference
+    done_negative:
+      STA_TWOS_COMP cam_dy
+    done:
+  .endscope
 .endproc
 
 ;; LoadPageTable
@@ -361,19 +418,6 @@ MIN_X_SCROLL_SPEED = $01
     JSR FillRowFromPage
     PLN_SP 14 ;; Pop all
 
-    ;; Now rotate the buffer based on scroll-x
-    LDA #<scroll_buffer_top_name
-    STA PLO ; Src buffer lo
-    LDA #>scroll_buffer_top_name
-    STA PHI ;; Src buffer hi
-    LDA #$21
-    STA r0 ;; Len is 33
-    LDA cam_x
-    .repeat 3
-      LSR A
-    .endrepeat
-    STA r1 ;; Shift by scroll_x tiles
-    JSR RotateBufferRight
     RTS
 .endproc
 
@@ -385,10 +429,10 @@ MIN_X_SCROLL_SPEED = $01
 
     LDA cam_y
     CLC
-    ADC #$08
+    ADC #$F0
     PHA_SP ;; Top buffer starts 8 pixels past bottom of camera
     LDA cam_y+1
-    ADC #$01
+    ADC #$00
     PHA_SP
 
     LDA #$08
@@ -407,19 +451,6 @@ MIN_X_SCROLL_SPEED = $01
     JSR FillRowFromPage
     PLN_SP 14 ;; Pop all
 
-    ;; Now rotate the buffer based on scroll-x
-    LDA #<scroll_buffer_bottom_name
-    STA PLO ; Src buffer lo
-    LDA #>scroll_buffer_bottom_name
-    STA PHI ;; Src buffer hi
-    LDA #$21
-    STA r0 ;; Len is 33
-    LDA cam_x
-    .repeat 3
-      LSR A
-    .endrepeat
-    STA r1 ;; Shift by scroll_x tiles
-    JSR RotateBufferRight
     RTS
 .endproc
 

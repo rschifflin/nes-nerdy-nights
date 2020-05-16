@@ -243,34 +243,41 @@
     BPL within_range ;; branch when no underflow
     LDA #$1D ;; Underflow to 29
   within_range:
-    ;; NameTable offset is 32 bytes per row, we need to multiply by 32 to get the nametable addr
-    STA r0
+    STA PLO
     LDA #$00
-    STA r1
-    CLC
-    .repeat 5
-      ROL r0 ;; r0 holds the low byte of A*32
-      ROL r1 ;; r1 holds the high byte of A*32
-    .endrepeat
-    LDA #$00 ;; Increment by 1 each write
-    STA PPUCTRL
+    STA PHI
 
-    ;; Next set PPU address of 1-32 bytes, in the near nametable
-    LDA PPUSTATUS
-    LDA r1
-    CLC
-    ADC #>PPU_ADDR_NAMETABLE0
-    STA PPUADDR
-    LDA r0
-    STA PPUADDR
+    PHN_SP 2
+    JSR _UpdateScrollNameRow
+    .scope write
+      first_write:
+        LDY r0 ;; u_len
+        LDX #$00
+      @loop:
+        LDA scroll_buffer_top_name, X
+        STA PPUDATA
+        INX
+        DEY
+        BNE @loop
 
-    ;; Write
-    Call_WritePPUBytes scroll_buffer_top_name, $20 ;; 32 bytes
+      reset_addr:
+        LDA PPUSTATUS
+        PLA_SP ;; v-hi
+        STA PPUADDR
+        PLA_SP ;; v-lo
+        STA PPUADDR
+
+      second_write:
+        LDY r1 ;; v_len
+        LDX r0 ;; u_len
+      @loop:
+        LDA scroll_buffer_top_name, X
+        STA PPUDATA
+        INX
+        DEY
+        BNE @loop
+    .endscope
     RTS
-.endproc
-
-.proc UpdateTopScrollAttr
-  RTS
 .endproc
 
 .proc UpdateBottomScrollName
@@ -283,33 +290,203 @@
     .repeat 3
       LSR A
     .endrepeat
-  within_range:
-    ;; NameTable offset is 32 bytes per row so multiply by 32 per coarse scroll_y
-    STA r0
+    STA PLO
     LDA #$00
-    STA r1
+    STA PHI
+
+    PHN_SP 2
+    JSR _UpdateScrollNameRow
+    .scope write
+      first_write:
+        LDY r0 ;; u_len
+        LDX #$00
+      @loop:
+        LDA scroll_buffer_bottom_name, X
+        STA PPUDATA
+        INX
+        DEY
+        BNE @loop
+
+      reset_addr:
+        LDA PPUSTATUS
+        PLA_SP ;; v-hi
+        STA PPUADDR
+        PLA_SP ;; v-lo. Stack now cleared again
+        STA PPUADDR
+
+      second_write:
+        LDY r1 ;; v_len
+        LDX r0 ;; u_len
+      @loop:
+        LDA scroll_buffer_bottom_name, X
+        STA PPUDATA
+        INX
+        DEY
+        BNE @loop
+    .endscope
+    RTS
+.endproc
+
+;;;; _UpdateScrollNameRow
+;; 2-byte stack: 0 args, 2 return
+;; DRY inner method for UpdateTopScrollName and UpdateBottomScrollName
+;; Expects PLO,PHI to hold a 16-bit offset of the target row
+;; Returns r0 = u_len, r1 = v_len
+.proc _UpdateScrollNameRow
+    ;; Stack frame
+    v_ppu_lo = SW_STACK-1
+    v_ppu_hi = SW_STACK
+    ;;;;
+
+    ;; We split the write across both horizontal nametables.
+    ;; NameTable offset is 32 bytes per row, we need to multiply by 32 to get the nametable addr
     CLC
     .repeat 5
-      ROL r0 ;; r0 holds the low byte of A*32
-      ROL r1 ;; r1 holds the high byte of A*32
+      ROL PLO ;; PLO holds the low byte of A*32
+      ROL PHI ;; PHI holds the high byte of A*32
     .endrepeat
+    LDA cam_x
+    .repeat 3
+      LSR A
+    .endrepeat
+    TAX
 
     LDA #$00 ;; Increment by 1 each write
     STA PPUCTRL
 
-    ;; set PPU address of 1-32 bytes, in the near nametable
-    LDA PPUSTATUS
-    LDA r1
+    LDA render_flags
+    AND #RENDER_FLAG_NAMETABLES_FLIPPED
+    BNE when_nametables_flipped
+    ;; Imagine two nametables, u and v
+    ;; We want to write our row spanning across u and v
+    ;; The equation to write is:
+    ;; Write u: u_ppu_lo = addr_u_lo + u_offset + row_offset_lo
+    ;;          u_ppu_hi = addr_u_hi + row_offset_hi + prev_carry
+    ;;          u_buffer = buffer_addr
+    ;;          u_len = 32 - u_offset
+    ;;
+    ;; Write v: v_ppu_lo = addr_v_lo + row_offset_lo
+    ;;          v_ppu_hi = addr_v_hi + row_offset_hi + prev_carry
+    ;;          v_buffer = buffer_addr + u_len
+    ;;          v_len = u_offset + 1
+    ;;
+    ;; We calculate those 4 values for v and push them
+    ;; Then we calculate those 4 values for u and execute them
+    ;; Then we pull those 4 values for v and execute them
+
+    ;; PLO = row_offset_lo
+    ;; PHI = row_offset_hi
+    ;; X = coarse scroll x = u_offset
+    .scope no_flip
+        U_NAMETABLE = PPU_ADDR_NAMETABLE0
+        V_NAMETABLE = PPU_ADDR_NAMETABLE1
+
+        ;; Calculate the far name tables first, and push them for later
+        LDY SP
+        LDA PLO ;; addr_v_lo (0) + row_offset_lo
+        STA v_ppu_lo,Y ;; v_ppu_lo
+        LDA #>V_NAMETABLE
+        CLC
+        ADC PHI ;; addr_v_hi + row_offset_hi + carry (0)
+        STA v_ppu_hi,Y
+
+        ;; Calculate near nametables and prepare first write
+        LDA PPUSTATUS ;; Reset addr latch
+        TXA ;; coarse scroll-x
+        CLC
+        ADC PLO ;; addr_u_lo (0) + row_offset_lo + u_off
+        TAY
+        LDA #>U_NAMETABLE
+        ADC PHI ;; addr_u_hi + row_offset_hi + prev_carry
+        STA PPUADDR ;; u_ppu_hi
+        TYA
+        STA PPUADDR ;; u_ppu_lo
+        JMP calculate_lengths
+    .endscope
+  when_nametables_flipped:
+    .scope flip
+        U_NAMETABLE = PPU_ADDR_NAMETABLE1
+        V_NAMETABLE = PPU_ADDR_NAMETABLE0
+
+        ;; Calculate the far name tables first, and push them for later
+        LDY SP
+        LDA PLO ;; addr_v_lo (0) + row_offset_lo
+        STA v_ppu_lo,Y ;; v_ppu_lo
+        LDA #>V_NAMETABLE
+        CLC
+        ADC PHI ;; addr_v_hi + row_offset_hi + carry (0)
+        STA v_ppu_hi,Y ;; v_ppu_hi
+
+        ;; Calculate near nametables and prepare first write
+        LDA PPUSTATUS ;; Reset addr latch
+        TXA ;; coarse scroll-x
+        CLC
+        ADC PLO ;; addr_u_lo (0) + row_offset_lo + u_off
+        TAY
+        LDA #>U_NAMETABLE
+        ADC PHI ;; addr_u_hi + row_offset_hi + prev_carry
+        STA PPUADDR ;; u_ppu_hi
+        TYA
+        STA PPUADDR ;; u_ppu_lo
+    .endscope
+
+  calculate_lengths:
+    TXA ;; coarse scroll-x
+    STA r0
+    LDA #$20 ;; 32 bytes
+    SEC
+    SBC r0
+    STA r0 ;; u_len
+
+    TXA
     CLC
-    ADC #>PPU_ADDR_NAMETABLE0
-    STA PPUADDR
-    LDA r0
-    STA PPUADDR
-    Call_WritePPUBytes scroll_buffer_bottom_name, $20
+    ADC #$01
+    STA r1 ;; v_len
 
     RTS
+.endproc
+
+.proc UpdateTopScrollAttr
   RTS
 .endproc
+
+;.proc UpdateBottomScrollName
+;    LDA #$00
+;    STA scroll_buffer_status
+;
+;    ;; When advancing down, we always draw to the line of the scroll buffer
+;    ;; When retreating up, we always draw to the line above the scroll buffer
+;    LDA ppu_scroll_y
+;    .repeat 3
+;      LSR A
+;    .endrepeat
+;  within_range:
+;    ;; NameTable offset is 32 bytes per row so multiply by 32 per coarse scroll_y
+;    STA r0
+;    LDA #$00
+;    STA r1
+;    CLC
+;    .repeat 5
+;      ROL r0 ;; r0 holds the low byte of A*32
+;      ROL r1 ;; r1 holds the high byte of A*32
+;    .endrepeat
+;
+;    LDA #$00 ;; Increment by 1 each write
+;    STA PPUCTRL
+;
+;    ;; set PPU address of 1-32 bytes, in the near nametable
+;    LDA PPUSTATUS
+;    LDA r1
+;    CLC
+;    ADC #>PPU_ADDR_NAMETABLE0
+;    STA PPUADDR
+;    LDA r0
+;    STA PPUADDR
+;    Call_WritePPUBytes scroll_buffer_bottom_name, $20
+;
+;    RTS
+;  RTS
+;.endproc
 
 .proc UpdateBottomScrollAttr
   RTS
@@ -414,34 +591,30 @@
       continue:
         BMI negative
       positive:
-       ;;Update every step to be safe
-       ;; TODO: Work out when updates need to occur for a camera with no extra nametable to play
-       JSR UpdateBottomScrollName ;; Positive Y means towards the bottom
-
-       ;; LDA cam_dy
-       ;; AND #%00000111
-       ;; STA r0
-       ;; LDA cam_y
-       ;; AND #%00000111
-       ;; CLC
-       ;; ADC r0
-       ;; CMP #$08
-       ;; BCC @when_within_same_tile
-      ;;@when_new_tile:
-       ;; JSR UpdateBottomScrollName ;; Positive Y means towards the bottom
-       ;; LDA cam_dy
-       ;; AND #%00000111
-       ;; STA r0
-       ;; LDA cam_y
-       ;; AND #%00011111
-       ;; CLC
-       ;; ADC r0
-       ;; CMP #$20
-       ;; BCC @when_within_same_region
-      ;;@when_new_region:
-       ;; JSR UpdateTopScrollAttr
-      ;;@when_within_same_region:
-      ;;@when_within_same_tile:
+        LDA cam_dy
+        AND #%00000111
+        STA r0
+        LDA cam_y
+        AND #%00000111
+        CLC
+        ADC r0
+        CMP #$08
+        BCC @when_within_same_tile
+      @when_new_tile:
+        JSR UpdateBottomScrollName ;; Positive Y means towards the bottom
+        LDA cam_dy
+        AND #%00000111
+        STA r0
+        LDA cam_y
+        AND #%00011111
+        CLC
+        ADC r0
+        CMP #$20
+        BCC @when_within_same_region
+      @when_new_region:
+        JSR UpdateTopScrollAttr
+      @when_within_same_region:
+      @when_within_same_tile:
       @update_cam:
         LDA cam_dy
         CLC
@@ -464,32 +637,27 @@
         JMP update_scroll_done
       negative:
         STA_TWOS_COMP cam_dy
-
-        ;;Update every step to be safe
-        ;; TODO: Work out when updates need to occur for a camera with no extra nametable to play
+        LDA cam_dy
+        AND #%00000111
+        STA r0
+        LDA cam_y
+        AND #%00000111
+        SEC
+        SBC r0
+        BPL @when_within_same_tile
+      @when_new_tile:
         JSR UpdateTopScrollName ;; Decreasing Y means towards the top
-
-        ;;LDA cam_dy
-        ;;AND #%00000111
-        ;;STA r0
-        ;;LDA cam_y
-        ;;AND #%00000111
-        ;;SEC
-        ;;SBC r0
-        ;;BPL @when_within_same_tile
-      ;;@when_new_tile:
-        ;;JSR UpdateTopScrollName ;; Decreasing Y means towards the top
-        ;;LDA cam_dy
-        ;;AND #%00000111
-        ;;STA r0
-        ;;LDA cam_y
-        ;;AND #%00011111
-        ;;SEC
-        ;;SBC r0
-        ;;BPL @when_within_same_region
-        ;;JSR UpdateBottomScrollAttr
-      ;;@when_within_same_region:
-      ;;@when_within_same_tile:
+        LDA cam_dy
+        AND #%00000111
+        STA r0
+        LDA cam_y
+        AND #%00011111
+        SEC
+        SBC r0
+        BPL @when_within_same_region
+        JSR UpdateBottomScrollAttr
+      @when_within_same_region:
+      @when_within_same_tile:
       @update_cam:
         LDA cam_y
         SEC
