@@ -57,6 +57,10 @@
     LDA #$00
     STA scroll_buffer_status
 
+    LDA #<PPU_ADDR_ATTRTABLE0
+    PHA_SP ;; ppuTargetLo
+           ;; Regardless of attrtable, targetLo is always c0
+
     LDA cam_x
     .repeat 5
       LSR A
@@ -64,60 +68,39 @@
     TAX
     INX
     CPX #$08 ;; 8 regions = 256 pixels, we wrapped around to 0
-    BNE handle_nonzero
-  handle_zero:
-    .scope zero_case
-        LDA #$C0
-        STA PLO
-        LDA render_flags
-        AND #RENDER_FLAG_NAMETABLES_FLIPPED
-        BNE when_flipped
-      when_default:
-        LDA #$23
-        STA PHI
-        JMP write
-      when_flipped:
-        LDA #$27
-        STA PHI
-        JMP write
-    .endscope
-  handle_nonzero:
-    .scope nonzero_case
-        TXA
-        CLC
-        ADC #$C0
-        STA PLO
-        LDA render_flags
-        AND #RENDER_FLAG_NAMETABLES_FLIPPED
-        BNE when_flipped
-      when_default:
-        LDA #$27
-        STA PHI
-        JMP write
-      when_flipped:
-        LDA #$23
-        STA PHI
-    .endscope
+    BNE when_nonzero
+  when_zero:
+    LDX #>PPU_ADDR_ATTRTABLE0
+    LDY #>PPU_ADDR_ATTRTABLE1
+    JMP set_ppu_target_hi
+  when_nonzero:
+    LDX #>PPU_ADDR_ATTRTABLE1
+    LDY #>PPU_ADDR_ATTRTABLE0
+  set_ppu_target_hi:
+    LDA render_flags
+    AND #RENDER_FLAG_NAMETABLES_FLIPPED
+    BNE when_flipped
+  when_default:
+    TXA
+    JMP write
+  when_flipped:
+    TYA
   write:
-    LDX #$00
-  loop:
-    LDA PPUSTATUS
-    LDA PHI
-    STA PPUADDR
-    LDA PLO
-    STA PPUADDR
-    LDA scroll_buffer_right_attr,X
-    STA PPUDATA
-    LDA PLO
+    PHA_SP ;; ppuTargetHi
+    LDA cam_x
     CLC
-    ADC #$08
-    STA PLO
-    LDA PHI
-    ADC #$00
-    STA PHI
-    INX
-    CPX #$08
-    BNE loop
+    ADC #$20 ;; 1 region right of the camera
+    PHA_SP ;; scrollX
+    LDA ppu_scroll_y
+    PHA_SP ;; scrollY
+    LDA #$08
+    STA r0 ;; bufferLen
+    LDA #<scroll_buffer_right_attr
+    STA PLO ;; srcLo
+    LDA #>scroll_buffer_right_attr
+    STA PHI ;; srcHi
+    JSR WritePPUAttrColumn
+    PLN_SP 4
 
     RTS
 .endproc
