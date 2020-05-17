@@ -421,6 +421,39 @@
     RTS
 .endproc
 
+.proc FillTopAttrBufferFromPage
+    LDA cam_x
+    PHA_SP
+    LDA cam_x+1
+    PHA_SP
+
+    LDA cam_y
+    SEC
+    SBC #$10
+    PHA_SP ;; Top buffer starts 16 pixels top of camera
+    LDA cam_y+1
+    SBC #$00
+    PHA_SP
+
+    LDA #$20
+    PHA_SP ;; attr table byte is 32 pixels wide
+    PHA_SP ;; attr table byte is 32 pixels tall
+    PHN_SP 3 ;; Add space for ret vals
+    JSR CoordsWorld2Page
+    PHN_SP 2 ;; Add space for ret vals
+    JSR GetBytePtrFromPage
+    LDA #<scroll_buffer_top_attr
+    PHA_SP
+    LDA #>scroll_buffer_top_attr
+    PHA_SP
+    LDA #$09 ;; scroll buffer len is 9 bytes
+    PHA_SP
+    JSR FillRowFromPage
+    PLN_SP 14 ;; Pop all
+    RTS
+.endproc
+
+
 .proc FillBottomNameBufferFromPage
     LDA cam_x
     PHA_SP
@@ -447,6 +480,39 @@
     LDA #>scroll_buffer_bottom_name
     PHA_SP
     LDA #$21 ;; scroll buffer len is 33 bytes
+    PHA_SP
+    JSR FillRowFromPage
+    PLN_SP 14 ;; Pop all
+
+    RTS
+.endproc
+
+.proc FillBottomAttrBufferFromPage
+    LDA cam_x
+    PHA_SP
+    LDA cam_x+1
+    PHA_SP
+
+    LDA cam_y
+    CLC
+    ADC #$10
+    PHA_SP ;; Top buffer starts 16 pixels past bottom of camera
+    LDA cam_y+1
+    ADC #$01
+    PHA_SP
+
+    LDA #$20
+    PHA_SP ;; attr table byte is 32 pixels wide
+    PHA_SP ;; attr table byte is 32 pixels tall
+    PHN_SP 3 ;; Add space for ret vals
+    JSR CoordsWorld2Page
+    PHN_SP 2 ;; Add space for ret vals
+    JSR GetBytePtrFromPage
+    LDA #<scroll_buffer_bottom_attr
+    PHA_SP
+    LDA #>scroll_buffer_bottom_attr
+    PHA_SP
+    LDA #$09 ;; scroll buffer len is 9 bytes
     PHA_SP
     JSR FillRowFromPage
     PLN_SP 14 ;; Pop all

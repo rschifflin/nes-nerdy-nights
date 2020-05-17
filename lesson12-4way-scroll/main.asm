@@ -64,6 +64,8 @@ clear_stack:
 
   JSR FillLeftAttrBufferFromPage
   JSR FillRightAttrBufferFromPage
+  JSR FillTopAttrBufferFromPage
+  JSR FillBottomAttrBufferFromPage
 
   LDA #<name_table_header
   STA PLO
@@ -301,6 +303,22 @@ run:
         BEQ done
       prepare_down:
         LDA scroll_buffer_status
+        AND #SCROLL_BUFFER_BOTTOM_ATTR_READY
+        BNE @check_name
+
+        LDA #<attribute_table_header
+        STA PLO
+        LDA #>attribute_table_header
+        STA PHI
+        JSR LoadPageTable
+
+        JSR FillBottomAttrBufferFromPage
+        LDA scroll_buffer_status
+        ORA #SCROLL_BUFFER_BOTTOM_ATTR_READY
+        STA scroll_buffer_status
+
+      @check_name:
+        LDA scroll_buffer_status
         AND #SCROLL_BUFFER_BOTTOM_NAME_READY
         BNE done
 
@@ -317,6 +335,22 @@ run:
         JMP done
 
       prepare_up:
+        LDA scroll_buffer_status
+        AND #SCROLL_BUFFER_TOP_ATTR_READY
+        BNE @check_name
+
+        LDA #<attribute_table_header
+        STA PLO
+        LDA #>attribute_table_header
+        STA PHI
+        JSR LoadPageTable
+
+        JSR FillTopAttrBufferFromPage
+        LDA scroll_buffer_status
+        ORA #SCROLL_BUFFER_TOP_ATTR_READY
+        STA scroll_buffer_status
+
+      @check_name:
         LDA scroll_buffer_status
         AND #SCROLL_BUFFER_TOP_NAME_READY
         BNE done
