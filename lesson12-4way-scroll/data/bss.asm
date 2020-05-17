@@ -11,3 +11,5 @@ scroll_buffer_top_name:   .res 33
 scroll_buffer_bottom_name:  .res 33
 scroll_buffer_top_attr:   .res 9
 scroll_buffer_bottom_attr:  .res 9
+
+is_last_vertical_up: .res 1 ;; A bool indicating the last vertical direction travelled was up (0) or down (1)

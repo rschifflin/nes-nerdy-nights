@@ -186,44 +186,78 @@ run:
       @scroll_speed_valid:
         STA scroll_speed
       b_done:
+        .scope movement_controls
+            ;; Check scroll lock
+            LDA cam_y
+            AND #%00000111
+            BEQ read_controller ;; Grid aligned
 
-        LDA p1_controller
-        AND #CONTROLLER_RIGHT
-        BEQ right_done
+            LDA scroll_speed
+            STA cam_dy
+            LDA is_last_vertical_up
+            BNE @when_down
+          @when_up:
+            STA_TWOS_COMP cam_dy
+          @when_down:
+            JMP done
 
-        LDA scroll_speed
-        STA cam_dx
-      right_done:
-        LDA p1_controller
-        AND #CONTROLLER_LEFT
-        BEQ left_done
+          read_controller:
+            ;; Note, Y is inverted so 'up' on the controller corresponds to decreasing Y
+            LDA p1_controller
+            AND #CONTROLLER_UP
+            BEQ no_up
 
-        LDA scroll_speed
-        STA cam_dx
-        STA_TWOS_COMP cam_dx
-      left_done:
+            LDA scroll_speed
+            STA cam_dy
+            STA_TWOS_COMP cam_dy
+            JMP done
+          no_up:
 
-        ;; Note, Y is inverted so 'up' on the controller corresponds to decreasing Y
-        LDA p1_controller
-        AND #CONTROLLER_UP
-        BEQ up_done
+            ;; Note, Y is inverted so 'down' on the controller corresponds to increasing Y
+            LDA p1_controller
+            AND #CONTROLLER_DOWN
+            BEQ no_down
 
-        LDA scroll_speed
-        STA cam_dy
-        STA_TWOS_COMP cam_dy
-      up_done:
+            LDA scroll_speed
+            STA cam_dy
+            JMP done
+          no_down:
+            LDA p1_controller
+            AND #CONTROLLER_RIGHT
+            BEQ no_right
 
-        ;; Note, Y is inverted so 'down' on the controller corresponds to increasing Y
-        LDA p1_controller
-        AND #CONTROLLER_DOWN
-        BEQ down_done
+            LDA scroll_speed
+            STA cam_dx
+            JMP done
+          no_right:
+            LDA p1_controller
+            AND #CONTROLLER_LEFT
+            BEQ no_left
 
-        LDA scroll_speed
-        STA cam_dy
-      down_done:
+            LDA scroll_speed
+            STA cam_dx
+            STA_TWOS_COMP cam_dx
+            JMP done
+          no_left:
+
+          done:
+        .endscope
     .endscope
 
     JSR CheckBounds
+    .scope vertical_scroll_lock
+        LDA cam_dy
+        BEQ done
+        BPL set_down
+      set_up:
+        LDA #$00
+        STA is_last_vertical_up
+        JMP done
+      set_down:
+        LDA #$01
+        STA is_last_vertical_up
+      done:
+    .endscope
 
     .scope check_x_movement
       x_movement:
