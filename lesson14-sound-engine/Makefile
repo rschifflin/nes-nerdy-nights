@@ -7,9 +7,9 @@ out/main.o :
 	ca65 -t nes "main.asm" -g -o "out/main.o"
 
 test :
-	for FILE in test/*.test; do \
+	for FILE in test/*.scm; do \
 	  FILE=$${FILE##*/}; \
-	  NAME=$${FILE%.test}; \
+	  NAME=$${FILE%.scm}; \
 	  ca65 -t nes "test/$${NAME}_test.asm" -g -o "out/test/$${NAME}.o"; \
 	  ld65 -C "test.cfg" -o "out/test/$${NAME}.bin" "out/test/$${NAME}.o"; \
 	done

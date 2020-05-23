@@ -1,30 +1,67 @@
-#!/usr/bin/guile -s
+#!/usr/local/bin/guile -s
 !#
 (use-modules (ice-9 popen)
              (ice-9 rdelim)
              (ice-9 ftw)
+             (ice-9 sandbox)
              (srfi srfi-1)
              (srfi srfi-9)
              (srfi srfi-13))
 
-;; parse-test-file-in parses a .test file containing a list of test metadata and produces a list of test records
+;; parse-test-file-in reads a .scm file containing a sequence of scheme expressions evaluating to test records and returns a list of records
 ;; generate-soft65c02-input takes a list of test records and creates an input string for running the tests
 ;; parse-test-file-out parses the result of the tests, and prints each pass or failure
 
-;; Test metadata is arranged as such:
-;;  The literal "name" on its own line
-;;  A test name
-;;  The literal "description" on its own line
-;;  A test description
-;;  The literal "rows" on its own line
-;;  A number of 16-byte buffer rows to compare the actual and expected data across
+;; Test records can be defined with a descriptive syntatic wrapper
+;;  (asm-test
+;;    (name "my test name")
+;;    (description "my test description"
+;;                 "multiple strings are ok"
+;;                 "they get concatenated with a space separator")
+;;    (rows 3)) ;; Optional, defaults to 1 row
+;;  Rows are a number of 16-byte buffer rows to compare the actual and expected data across
 
-(define-record-type <test>
-  (make-test name desc rows)
-  is-test?
-  (name test-name)
-  (desc test-desc)
-  (rows test-rows))
+(define-record-type <asm-test>
+  (make-asm-test name desc rows)
+  is-asm-test?
+  (name asm-test-name)
+  (desc asm-test-desc)
+  (rows asm-test-rows))
+
+(define-syntax asm-test
+  (syntax-rules .. ()
+    ((asm-test asm-defs ..)
+     (begin
+       (define-syntax asm-test-builder
+         (syntax-rules (name description rows body)
+           ((_ body name-arg description-arg rows-arg) ;; Base case pattern
+             (cond
+               ((not (string? name-arg))
+                (raise-exception (list "Bad asm-test format in name field. Expected string, got " name-arg)))
+               ((not (string? description-arg))
+                (raise-exception (list "Bad asm-test format in description field. Expected string, got " description-arg)))
+               ((not (number? rows-arg))
+                (raise-exception (list "Bad asm-test format in rows field. Expected number, got " rows-arg)))
+               (#t (make-asm-test name-arg description-arg rows-arg))))
+
+           ((_ (name str strings ...) exprs ... body _ description-arg rows-arg) ;; Name pattern
+            (let ((name-arg (string-join (list str strings ...))))               ;; Name template
+              (asm-test-builder exprs ... body name-arg description-arg rows-arg)))
+
+           ((_ (description str strings ...) exprs ... body name-arg _ rows-arg) ;; Desc pattern
+            (let ((description-arg (string-join (list str strings ...))))        ;; Desc template
+              (asm-test-builder exprs ... body name-arg description-arg rows-arg)))
+
+           ((_ (rows n) exprs ... body name-arg description-arg _) ;; Row pattern
+            (let ((rows-arg n))                                    ;; Row template
+              (asm-test-builder exprs ... body name-arg description-arg rows-arg)))))
+       (asm-test-builder asm-defs .. body #f #f 1)))))
+
+(define (asm-test-sandbox)
+  (export asm-test)
+  (let* ((symbols '(asm-test))
+         (bindings (cons (module-name (current-module)) symbols)))
+    (make-sandbox-module (cons bindings all-pure-bindings))))
 
 (define (call-with-output-pipe cmd out-pred)
   (let* ((pipe (open-input-output-pipe cmd))
@@ -32,22 +69,7 @@
          (status (close-pipe pipe)))
     (and status read_result)))
 
-(define (strip-trailing-comments line)
-  (let ((comment (string-index line #\#)))
-    (if comment
-        (string-take line comment)
-        line)))
-
-(define (read-nonempty-line port)
-  (let ((line (read-line port)))
-    (if (eof-object? line)
-      line
-      (let ((pretty-line (string-trim-both (strip-trailing-comments line))))
-        (if (string-null? pretty-line)
-          (read-nonempty-line port)
-          pretty-line)))))
-
-(define (generate-soft65c02-input test-list test-name)
+(define (generate-soft65c02-input test-list file-basename)
   (define (continue test-list generated)
     (if (null? test-list)
       generated
@@ -55,56 +77,23 @@
           (continue (cdr test-list)
                     (string-append generated
                                    "registers show\n"
-                                   "memory show #0x5000 " (number->string (test-rows current-test)) "\n"
-                                   "memory show #0x6000 " (number->string (test-rows current-test)) "\n"
+                                   "memory show #0x5000 " (number->string (asm-test-rows current-test)) "\n"
+                                   "memory show #0x6000 " (number->string (asm-test-rows current-test)) "\n"
                                    "run until #0x7FFF = 0x01\n")))))
   (continue test-list
             (string-append
-              "memory load #0x8000 \"out/test/" test-name ".bin\"\n"
+              "memory load #0x8000 \"out/test/" file-basename ".bin\"\n"
               "run init until #0x7FFF = 0x01\n")))
-
-(define (parse-test-name port)
-  (define (parse port name)
-    (let ((line (read-nonempty-line port)))
-      (cond
-        ((eof-object? line)
-          #f)
-        ((string-ci=? line "name")
-          (parse port name))
-        ((string-ci=? line "description")
-          name)
-        (#t
-          (parse port (string-append name line " "))))))
-  (parse port ""))
-
-(define (parse-test-desc port)
-  (define (parse port desc)
-    (let ((line (read-nonempty-line port)))
-      (if (eof-object? line)
-        #f
-        (if (string-ci=? line "rows")
-          desc
-          (parse port (string-append desc line " "))))))
-  (parse port ""))
-
-(define (parse-test-rows port)
-  (let ((line (read-nonempty-line port)))
-    (if (eof-object? line)
-      #f
-      (string->number line))))
-
-(define (parse-test port)
-  (let* ((name (parse-test-name port))
-         (desc (and name (parse-test-desc port)))
-         (rows (and desc (parse-test-rows port))))
-      (and name desc rows (make-test name desc rows))))
 
 (define (parse-test-file-in port)
   (define (continue port test-list)
-    (let ((test (parse-test port)))
-      (if (is-test? test)
-        (continue port (cons test test-list))
-        (reverse test-list))))
+    (let ((result (read port)))
+      (if (eof-object? result)
+        (reverse test-list)
+        (let ((parsed (eval-in-sandbox result #:module (asm-test-sandbox))))
+           (if (is-asm-test? parsed)
+             (continue port (cons parsed test-list))
+             #f)))))
   (continue port '()))
 
 (define (parse-test-file-out port test-list)
@@ -136,7 +125,7 @@
               (cond
                 ((and (string=? actual expected) (null? (cdr compare-stack)))
                   (begin
-                    (display (string-append "    " (test-name (list-ref test-list test-number)) "- pass\n"))
+                    (display (string-append "    " (asm-test-name (list-ref test-list test-number)) "- pass\n"))
                     (continue port test-list test-number (reverse (cdr (reverse compare-stack))))))
                 ((string=? actual expected)
                   (continue port test-list test-number (reverse (cdr (reverse compare-stack)))))
@@ -144,8 +133,8 @@
                   (begin
                     (display (string-append
                                "  FAIL\n"
-                               "    " (test-name (list-ref test-list test-number)) "\n"
-                               "      " (test-desc (list-ref test-list test-number)) "\n"
+                               "    " (asm-test-name (list-ref test-list test-number)) "\n"
+                               "      " (asm-test-desc (list-ref test-list test-number)) "\n"
                                "    expected:\n        " expected-full "\n"
                                "    actual:\n        "   actual-full "\n"))
                     #f)))))
@@ -156,23 +145,23 @@
                   #f))))))
   (continue port test-list 0 '()))
 
-(define (lookup-test-names)
-  (map (lambda (name) (basename name ".bin"))
+(define (lookup-test-file-basenames)
+  (map (lambda (file-name) (basename file-name ".bin"))
        (scandir "out/test"
-                (lambda (name) (string-suffix? ".bin" name)))))
+                (lambda (file-name) (string-suffix? ".bin" file-name)))))
 
 (let* ((args (cdr (command-line)))
-       (test-names (if (zero? (length args))
-                    (lookup-test-names)
+       (test-file-basenames (if (zero? (length args))
+                    (lookup-test-file-basenames)
                     args)))
   (and
-    (fold (lambda (test-name last)
+    (fold (lambda (test-file-basename last)
             (and
               last
-              (begin (display (string-append "  TEST: " test-name "\n")) #t)
-              (let* ((test-file (string-append "test/" test-name ".test"))
+              (begin (display (string-append "  TEST: " test-file-basename "\n")) #t)
+              (let* ((test-file (string-append "test/" test-file-basename ".scm"))
                      (test-list (call-with-input-file test-file parse-test-file-in))
-                     (generated (generate-soft65c02-input test-list test-name))
+                     (generated (generate-soft65c02-input test-list test-file-basename))
                      (write-test-input (lambda (port) (display generated port)))
                      (read-test-output (lambda (port) (parse-test-file-out port test-list))))
                     (and
@@ -182,9 +171,7 @@
                                                             "rg \"Registers|#5|#6\"")
                                              read-test-output)))))
           #t
-          test-names)
+          test-file-basenames)
     (begin
       (display "  TEST: all tests pass!\n")
       #t)))
-
-
