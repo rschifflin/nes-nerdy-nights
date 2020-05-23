@@ -1,0 +1,50 @@
+.scope AUDIO
+  CHANNEL_SQ1    = %00000001
+  CHANNEL_SQ2    = %00000010
+  CHANNEL_TRI    = %00000100
+  CHANNEL_NOISE  = %00001000
+
+  APU_REGISTER_LIST = $4000
+
+  .struct Registers
+    env     .byte
+    sweep   .byte
+    note_lo .byte
+    note_hi .byte
+  .endstruct
+
+  ;; A Track is an assignment of APU channels
+  ;; to an encoded audio stream.
+  .struct Track
+    channels_active .byte ;; channel mask
+    audio_header    .addr ;; -> AudioStream
+    sq1             .addr ;; -> Decoder
+    sq2             .addr ;; -> Decoder
+    tri             .addr ;; -> Decoder
+    noise           .addr ;; -> Decoder
+  .endstruct
+
+  .struct Stream
+    spempo   .byte ;; Speed | Tempo
+    ;; Instruments
+    ;; Patterns
+    ;; Frames
+    ;; Etc
+
+    ch0      .addr ;; -> [encoded audio stream bytes...]
+    ch1      .addr ;; -> [encoded audio stream bytes...]
+    ch2      .addr ;; -> [encoded audio stream bytes...]
+    ch3      .addr ;; -> [encoded audio stream bytes...]
+  .endstruct
+
+  ;; A decoder is an audio stream with current progress and a decoding fsm
+  .struct Decoder
+    stream_head  .addr    ;; -> audio start
+    registers    .tag Registers
+    spempo       .byte
+    ;; length counter?
+    ;; loop counter?
+    ;; channel done?
+    ;; etc
+  .endstruct
+.endscope

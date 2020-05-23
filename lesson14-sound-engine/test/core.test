@@ -1,0 +1,76 @@
+#### Test 0
+Name
+  Rotate Buf Right: Len 0 does nothing
+Description
+  Given a buffer of len 0
+  Expects RotateBufRight to do nothing
+Rows
+  1
+##
+
+#### Test 1
+Name
+  Rotate Buf Right: A rotation of 0 does nothing
+Description
+  Given a buffer with no rotation
+  Expects RotateBufRight to do nothing
+Rows
+  1
+##
+
+#### Test 2
+Name
+  Rotate Buf Right: Rotation within len
+Description
+  Given a buffer with 10 elements
+  And a rotation of 7
+  Expects RotateBufRight to rotate properly
+Rows
+  1
+##
+
+#### Test 3
+Name
+  Rotate Buf Right: Rotation with cycles
+Description
+  Given a buffer with 6 elements
+  And a rotation of 2
+  So that after 3 rotations we end up in a cycle
+  Expects RotateBufRight to rotate properly
+Rows
+  1
+##
+
+#### Test 4
+Name
+  Rotate Buf Right: Shift larger than size
+Description
+  Given a buffer with 13 elements
+  And a rotation of 17
+  Expects RotateBufRight to behave like a rotation of 4
+Rows
+  1
+##
+
+#### Test 5
+Name
+  Rotate Buf Right: Shift equal to size
+Description
+  Given a buffer with 32 elements
+  And a rotation of 32
+  Expects RotateBufRight to behave like a rotation of 0
+Rows
+  2
+##
+
+#### Test 6
+Name
+  Rotate Buf Right: Large numbers
+Description
+  Given a buffer with 255 elements
+  And a rotation of 197
+  Expects RotateBufRight to behave correctly
+Rows
+  16
+##
+
