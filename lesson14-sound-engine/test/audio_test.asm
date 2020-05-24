@@ -514,6 +514,57 @@
     RTS
 .endproc
 
+.proc Test2TrackForChannel
+    LDA #%00001101 ;; All channels missing sq2
+    STA audio::track_bgm + AUDIO::Track::channels_active
+    STA audio::track_sfx0 + AUDIO::Track::channels_active
+    STA audio::track_sfx1 + AUDIO::Track::channels_active
+
+    LDX #$00
+  expected:
+    LDA #<audio::track_sfx1
+    STA TEST_EXPECTED,X
+    LDA #>audio::track_sfx1
+    STA TEST_EXPECTED+1,X
+    INX
+    INX
+    CPX #$08
+    BNE expected
+    LDA #$00 ;; Sq2 should be null
+    STA TEST_EXPECTED+2
+    STA TEST_EXPECTED+3
+
+    LDX #$00
+    LDY #AUDIO::CHANNEL_SQ1
+  loop:
+    TYA
+    PHA
+    TXA
+    PHA
+
+    STY r0
+    JSR Audio::TrackForChannel
+
+    PLA
+    TAX
+    LDA PLO
+    STA TEST_ACTUAL,X
+    LDA PHI
+    STA TEST_ACTUAL+1,X
+
+    PLA
+    CMP #AUDIO::CHANNEL_NOISE
+    BEQ end_loop ;; stop after noise
+    ASL A ;; Iterate through all audio channel bitflags
+    TAY
+    INX
+    INX
+    JMP loop
+  end_loop:
+    SHOW
+    RTS
+.endproc
+
 .proc Test0PrepareChannelBuffer
     LDA #<(audio::decoder_0 + AUDIO::Decoder::registers)
     STA TEST_EXPECTED
@@ -663,6 +714,30 @@
     RTS
 .endproc
 
+.proc Test2PrepareChannelBuffer
+    LDA #$00
+    STA TEST_EXPECTED
+    STA TEST_EXPECTED+1
+
+    JSR Audio::Init
+    LDA #AUDIO::CHANNEL_SQ1
+    STA r0
+    LDA #$00
+    STA PLO
+    LDA #$00
+    STA PHI
+    JSR Audio::PrepareChannelBuffer
+
+    LDA audio::buffer_ch_addr_list
+    STA TEST_ACTUAL
+    LDA audio::buffer_ch_addr_list+1,X
+    STA TEST_ACTUAL+1
+
+    SHOW
+    RTS
+.endproc
+
+
 .proc RunTests
     TEST TestInit
     TEST TestPlayBGM
@@ -670,7 +745,9 @@
     TEST TestPlaySFX1
     TEST Test0TrackForChannel
     TEST Test1TrackForChannel
+    TEST Test2TrackForChannel
     TEST Test0PrepareChannelBuffer
     TEST Test1PrepareChannelBuffer
+    TEST Test2PrepareChannelBuffer
     RTS
 .endproc

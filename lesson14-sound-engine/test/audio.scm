@@ -62,13 +62,28 @@
 ;; Test 6
 (asm-test
   (name
+    "TrackForChannel with no tracks")
+  (description
+    "It should return the null track addr"))
+
+;; Test 7
+(asm-test
+  (name
     "PrepareChannelBuffer with one channel")
   (description
     "It should set the buffer_ch_addr_list to the correct decoder register offsets"))
 
-;; Test 7
+;; Test 8
 (asm-test
   (name
     "PrepareChannelBuffer with all four channels")
   (description
     "It should set the buffer_ch_addr_list to the correct decoder register offsets"))
+
+;; Test 9
+(asm-test
+  (name
+    "PrepareChannelBuffer with null channel")
+  (description
+    "It should set the buffer_ch_addr_list to the null addr"))
+
