@@ -24,7 +24,7 @@ TEST_SHOW                = $7FFF
 ZEROBYTE: .res 1 ;; Bug in soft65c02 maybe? Cant INC byte so we start our zp at 1
 .include "../mem/core.zp.asm"
 
-.segment "BSS"
+.segment "BSS_HARNESS"
 .include "../mem/stack.bss.asm"
 
 .segment "IVT"

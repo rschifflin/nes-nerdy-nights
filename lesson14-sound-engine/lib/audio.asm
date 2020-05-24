@@ -1,8 +1,70 @@
 ;; Sound engine API
 .scope Audio
   .linecont +
+
+  track_prio_list:
+    .addr audio::track_bgm ;; Lowest priority
+    .addr audio::track_sfx0
+    .addr audio::track_sfx1 ;; Highest priority
   .proc Init
       ;; Initialize audio engine
+      ;; Set decoders for tracks
+      LDA #<audio::decoders
+      STA PLO
+      LDA #>audio::decoders
+      STA PHI
+
+      LDX #$00
+    loop_bgm:
+      LDA PLO
+      STA audio::track_bgm + AUDIO::Track::sq1, X
+      CLC
+      ADC #.SIZEOF(AUDIO::Decoder)
+      STA PLO
+
+      LDA PHI
+      STA audio::track_bgm + AUDIO::Track::sq1 + 1, X
+      ADC #$00
+      STA PHI
+      INX
+      INX
+      CPX #$08
+      BNE loop_bgm
+
+      LDX #$00
+    loop_sfx0:
+      LDA PLO
+      STA audio::track_sfx0 + AUDIO::Track::sq1, X
+      CLC
+      ADC #.SIZEOF(AUDIO::Decoder)
+      STA PLO
+
+      LDA PHI
+      STA audio::track_sfx0 + AUDIO::Track::sq1 + 1, X
+      ADC #$00
+      STA PHI
+      INX
+      INX
+      CPX #$08
+      BNE loop_sfx0
+
+      LDX #$00
+    loop_sfx1:
+      LDA PLO
+      STA audio::track_sfx1 + AUDIO::Track::sq1, X
+      CLC
+      ADC #.SIZEOF(AUDIO::Decoder)
+      STA PLO
+
+      LDA PHI
+      STA audio::track_sfx1 + AUDIO::Track::sq1 + 1, X
+      ADC #$00
+      STA PHI
+      INX
+      INX
+      CPX #$08
+      BNE loop_sfx1
+
       JMP Enable
   .endproc
 
@@ -47,6 +109,8 @@
       PHA_SP
       JSR PlayTrack
       PLN_SP 2
+
+      RTS
   .endproc
 
   ;;;; PlaySFX0
@@ -58,12 +122,13 @@
       audio_addr_hi = SW_STACK-1
 
       ;; Plays an encoded audio stream on the sfx0 (lo prio) track
-      LDA #<track_sfx0
+      LDA #<audio::track_sfx0
       PHA_SP
-      LDA #>track_sfx0
+      LDA #>audio::track_sfx0
       PHA_SP
       JSR PlayTrack
       PLN_SP 2
+
       RTS
   .endproc
 
@@ -75,14 +140,14 @@
       audio_addr_lo = SW_STACK-2
       audio_addr_hi = SW_STACK-1
 
-      LDA #<track_sfx1
+      LDA #<audio::track_sfx1
       PHA_SP
-      LDA #>track_sfx1
+      LDA #>audio::track_sfx1
       PHA_SP
       JSR PlayTrack
       PLN_SP 2
+
       RTS
-    RTS
   .endproc
 
   ;;;; PlayTrack
@@ -103,7 +168,7 @@
 
       ;; store audio header
       LDA audio_addr_lo,x
-      LDY #Track::audio_header
+      LDY #AUDIO::Track::audio_header
       STA (PLO),Y
       STA r0
 
@@ -112,6 +177,11 @@
       STA (PLO),Y
       STA r1
 
+      LDY #AUDIO::Stream::channels
+      LDA (r0), Y
+      LDY #AUDIO::Track::channels_active
+      STA (PLO),Y
+
       LDA r0
       PHA_SP ;; Audio addr lo
       LDA r1
@@ -119,7 +189,7 @@
 
       LDA PLO
       CLC
-      ADC #Track::sq1
+      ADC #AUDIO::Track::sq1
       STA PLO
       LDA PHI
       ADC #$00
@@ -231,13 +301,13 @@
       LDA r0
       STA r1
 
-      LDA audio::track_bgm + Track::channels_active
+      LDA audio::track_bgm + AUDIO::Track::channels_active
       AND r0
       STA temp0
-      LDA audio::track_sfx0 + Track::channels_active
+      LDA audio::track_sfx0 + AUDIO::Track::channels_active
       AND r0
       STA temp1
-      LDA audio::track_sfx1 + Track::channels_active
+      LDA audio::track_sfx1 + AUDIO::Track::channels_active
       AND r0
       ASL A
       ASL r1
@@ -257,9 +327,14 @@
       ASL A
       JMP loop
     end_loop:
-      LDA audio::track_prio_list, X
+      ;; Multiply X by 2 to index list of addresses
+      TXA
+      ASL A
+      TAX
+
+      LDA track_prio_list, X
       STA PLO
-      LDA audio::track_prio_list+1, X
+      LDA track_prio_list+1, X
       STA PHI
     done:
       RTS
@@ -282,29 +357,28 @@
       ;; multiply by 2 to index into word-sized addresses
       ASL r0
 
-      LDA AUDIO::Track::sq1
+      LDA #AUDIO::Track::sq1
       CLC
       ADC r0 ;; Offset of decoder address
       TAY
       LDA (PLO),Y ;; Load decoder lo
       CLC
-      ADC AUDIO::Decoder::fsm + AUDIO::FSM::registers ;; Offset at start of registers
+      ADC #AUDIO::Decoder::registers ;; A now holds decoderLo + offset to registers
       PHA ;; Can't store yet, still using PLO/PHI to point to decoder data
       INY
       LDA (PLO),Y ;; Load decoder hi
-      ADC #$00 ;; Include carry if needed
+      ADC #$00 ;; Include carry from lo+offset if needed
       STA PHI
       LDX r0
       PLA ;; Registers lo
       STA audio::buffer_ch_addr_list,X
-      INX
       LDA PHI ;; Registers hi
-      STA audio::buffer_ch_addr_list,X
+      STA audio::buffer_ch_addr_list+1,X
       RTS
   .endproc
 
   .proc PlayFrame
-      LDA audio_disable
+      LDA audio::disable
       BNE done
       ;; Do while audio enabled
       ;; Tick
@@ -381,35 +455,35 @@
   .endproc
 
   .proc TickBgm
-      LDA audio::track_bgm + AUDIO::Track::channels_active
-      BEQ done ;; No channels active
+      ;LDA #audio::track_bgm + AUDIO::Track::channels_active
+      ;BEQ done ;; No channels active
 
-      BIT #AUDIO::CHANNEL_SQ1
-      BEQ done_sq1
+      ;BIT #AUDIO::CHANNEL_SQ1
+      ;BEQ done_sq1
       ;; Run square channel
       ;;...
-      LDA audio::track_bgm + AUDIO::Track::channels_active
+      ;LDA #audio::track_bgm + AUDIO::Track::channels_active
     done_sq1:
 
-      BIT #AUDIO::CHANNEL_SQ2
-      BEQ done_sq2
+      ;BIT #AUDIO::CHANNEL_SQ2
+      ;BEQ done_sq2
       ;; Run square 2 channel
       ;; ...
-      LDA audio::track_bgm + AUDIO::Track::channels_active
+      ;LDA #audio::track_bgm + AUDIO::Track::channels_active
     done_sq2:
 
-      BIT #AUDIO::CHANNEL_TRI
-      BEQ done_tri
+      ;BIT #AUDIO::CHANNEL_TRI
+      ;BEQ done_tri
       ;; Run tri channel
       ;; ...
-      LDA audio::track_bgm + AUDIO::Track::channels_active
+      ;LDA #audio::track_bgm + AUDIO::Track::channels_active
     done_tri:
-      BIT #AUDIO::CHANNEL_NOISE
-      BEQ done
+      ;BIT #AUDIO::CHANNEL_NOISE
+      ;BEQ done
       ;; Run noise channel
       ;; ...
     done:
-      RTS
+     RTS
   .endproc
 
   .proc TickSfx0
@@ -427,7 +501,7 @@
       LDA #$00
       STA APUFLAGS
       LDA #$01
-      STA audio_disable
+      STA audio::disable
       RTS
   .endproc
 .endscope

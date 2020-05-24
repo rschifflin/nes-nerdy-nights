@@ -3,6 +3,7 @@
 .include "defs/mmc1.def"
 .include "defs/nes.def"
 .include "defs/notes_ntsc.def"
+.include "defs/audio.def"
 
 ;; iNES header bytes
 .include "data/header.asm"

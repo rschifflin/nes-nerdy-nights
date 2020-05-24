@@ -17,7 +17,7 @@
   ;; to an encoded audio stream.
   .struct Track
     channels_active .byte ;; channel mask
-    audio_header    .addr ;; -> AudioStream
+    audio_header    .addr ;; -> Stream
     sq1             .addr ;; -> Decoder
     sq2             .addr ;; -> Decoder
     tri             .addr ;; -> Decoder
@@ -25,10 +25,11 @@
   .endstruct
 
   .struct Stream
+    channels .byte ;; lower nybble = mask of channels used
     spempo   .byte ;; Speed | Tempo
-    ;; Instruments
-    ;; Patterns
-    ;; Frames
+    ;; Instruments?
+    ;; Patterns?
+    ;; Frames?
     ;; Etc
 
     ch0      .addr ;; -> [encoded audio stream bytes...]
