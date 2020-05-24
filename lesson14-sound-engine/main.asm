@@ -253,7 +253,7 @@ run:
         PHA_SP
         LDA #>test_song_2
         PHA_SP
-        JSR Audio::PlayBGM
+        JSR Audio::PlaySFX0
         PLN_SP 2
         JMP done
       no_b:
@@ -261,7 +261,7 @@ run:
         LDA p1_controller_rising
         AND #CONTROLLER_SELECT
         BEQ no_select
-        JSR Audio::StopBGM
+        JSR Audio::StopSFX0
         JMP done
       no_select:
 

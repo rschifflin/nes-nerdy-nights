@@ -210,7 +210,7 @@
     .endrepeat
 
   expected:
-    ;; BGM track (11 bytes):
+    ;; SFX0 track (11 bytes):
     .byte %00000100 ;; Channel mask
     .addr audio_stream ;; ptr to audio stream
     .addr audio::decoder_4 ;; ptr to decoder
@@ -270,13 +270,13 @@
   .scope loop_actual
       LDX #$00
       LDY #$00
-    bgm:
+    sfx0:
       LDA audio::track_sfx0, X
       STA TEST_ACTUAL, Y
       INY
       INX
       CPX #$0B
-      BNE bgm
+      BNE sfx0
 
       LDX #$00
     decoders:
@@ -323,7 +323,7 @@
     .endrepeat
 
   expected:
-    ;; BGM track (11 bytes):
+    ;; SFX1 track (11 bytes):
     .byte %00001111 ;; Channel mask
     .addr audio_stream ;; ptr to audio stream
     .addr audio::decoder_8 ;; ptr to decoder
@@ -383,13 +383,13 @@
   .scope loop_actual
       LDX #$00
       LDY #$00
-    bgm:
+    sfx1:
       LDA audio::track_sfx1, X
       STA TEST_ACTUAL, Y
       INY
       INX
       CPX #$0B
-      BNE bgm
+      BNE sfx1
 
       LDX #$00
     decoders:

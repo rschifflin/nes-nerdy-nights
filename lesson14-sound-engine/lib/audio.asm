@@ -469,9 +469,7 @@
       BNE done
       ;; Do while audio enabled
       ;; Tick
-      JSR TickBgm
-      JSR TickSfx0
-      JSR TickSfx1
+      JSR Tick
 
       ;; Prepare channel output from the correct priority tracks
       LDX #AUDIO::CHANNEL_SQ1
@@ -564,22 +562,52 @@
       RTS
   .endproc
 
-  .proc TickBgm
-      LDA audio::track_bgm + AUDIO::Track::channels_active
-      BEQ done ;; No channels active
+  ;; Goes through all track addrs and ticks each track
+  .proc Tick
+      LDX #$00
+    loop:
+      LDA track_prio_list,X
+      STA PLO
+      LDA track_prio_list+1,X
+      STA PHI
+      TXA
+      PHA
+      JSR TickTrack
+      PLA
+      TAX
+      INX
+      INX
+      CPX #$06
+      BNE loop
+      RTS
+  .endproc
 
-      TAY
-      LDA audio::track_bgm + AUDIO::Track::audio_header
+  ;;;; TickTrack
+  ;; 0-byte stack: 0 args, 0 return
+  ;; Decodes the next note for all active channels in the track pointed to by P
+  ;; Expects P to point to a track
+  .proc TickTrack
+      LDY #AUDIO::Track::channels_active
+      LDA (PLO),Y
+      BEQ done ;; No channels active
+      PHA ;; Preserve for later
+
+      LDY #AUDIO::Track::audio_header
+      LDA (PLO),Y
       PHA_SP ;; Audio header lo
-      LDA audio::track_bgm + AUDIO::Track::audio_header + 1
+      INY
+      LDA (PLO),Y
       PHA_SP ;; Audio header hi
 
-      TYA
+      PLA ;; Restore
       AND #AUDIO::CHANNEL_SQ1
+
       BEQ done_sq1
-      LDA audio::track_bgm + AUDIO::Track::sq1
+      LDY #AUDIO::Track::sq1
+      LDA (PLO),Y
       PHA_SP ;; Decoder lo
-      LDA audio::track_bgm + AUDIO::Track::sq1 + 1
+      INY
+      LDA (PLO),Y
       PHA_SP ;; Decoder hi
       JSR DecodeStream
       PLN_SP 2
