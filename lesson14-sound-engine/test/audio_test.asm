@@ -107,7 +107,7 @@
 
     ;; Decoder 0 (6 bytes)
     .addr stream_ch0   ;; stream head
-    .byte $00, $00, $00, $00 ;; TODO: Registers
+    .byte $30, $08, $00, $00 ;; Default silent registers
     .byte $E0 ;; Placeholder for speed/tempo
     ;; TODO: .byte length counter
     ;; TODO: .byte loop counter
@@ -115,7 +115,7 @@
 
     ;; Decoder 1 (6 bytes)
     .addr stream_ch1   ;; stream head
-    .byte $00, $00, $00, $00 ;; TODO: Registers
+    .byte $30, $08, $00, $00 ;; Default silent registers
     .byte $E0 ;; Placeholder for speed/tempo
     ;; TODO: .byte length counter
     ;; TODO: .byte loop counter
@@ -123,7 +123,7 @@
 
     ;; Decoder 2 (6 bytes)
     .addr stream_ch2   ;; stream head
-    .byte $00, $00, $00, $00 ;; TODO: Registers
+    .byte $30, $08, $00, $00 ;; Default silent registers
     .byte $E0 ;; Placeholder for speed/tempo
     ;; TODO: .byte length counter
     ;; TODO: .byte loop counter
@@ -131,7 +131,7 @@
 
     ;; Decoder 3 (6 bytes)
     .addr stream_ch3   ;; stream head
-    .byte $00, $00, $00, $00 ;; TODO: Registers
+    .byte $30, $08, $00, $00 ;; Default silent registers
     .byte $E0 ;; Placeholder for speed/tempo
     ;; TODO: .byte length counter
     ;; TODO: .byte loop counter
@@ -220,7 +220,7 @@
 
     ;; Decoder 4 (6 bytes)
     .addr stream_ch0   ;; stream head
-    .byte $00, $00, $00, $00 ;; TODO: Registers
+    .byte $30, $08, $00, $00 ;; Default silent registers
     .byte $FA ;; Placeholder for speed/tempo
     ;; TODO: .byte length counter
     ;; TODO: .byte loop counter
@@ -228,7 +228,7 @@
 
     ;; Decoder 5 (6 bytes)
     .addr stream_ch1   ;; stream head
-    .byte $00, $00, $00, $00 ;; TODO: Registers
+    .byte $30, $08, $00, $00 ;; Default silent registers
     .byte $FA ;; Placeholder for speed/tempo
     ;; TODO: .byte length counter
     ;; TODO: .byte loop counter
@@ -236,7 +236,7 @@
 
     ;; Decoder 6 (6 bytes)
     .addr stream_ch2   ;; stream head
-    .byte $00, $00, $00, $00 ;; TODO: Registers
+    .byte $30, $08, $00, $00 ;; Default silent registers
     .byte $FA ;; Placeholder for speed/tempo
     ;; TODO: .byte length counter
     ;; TODO: .byte loop counter
@@ -244,7 +244,7 @@
 
     ;; Decoder 7 (6 bytes)
     .addr stream_ch3   ;; stream head
-    .byte $00, $00, $00, $00 ;; TODO: Registers
+    .byte $30, $08, $00, $00 ;; Default silent registers
     .byte $FA ;; Placeholder for speed/tempo
     ;; TODO: .byte length counter
     ;; TODO: .byte loop counter
@@ -333,7 +333,7 @@
 
     ;; Decoder 8 (6 bytes)
     .addr stream_ch0   ;; stream head
-    .byte $00, $00, $00, $00 ;; TODO: Registers
+    .byte $30, $08, $00, $00 ;; Default silent registers
     .byte $14 ;; Placeholder for speed/tempo
     ;; TODO: .byte length counter
     ;; TODO: .byte loop counter
@@ -341,7 +341,7 @@
 
     ;; Decoder 9 (6 bytes)
     .addr stream_ch1   ;; stream head
-    .byte $00, $00, $00, $00 ;; TODO: Registers
+    .byte $30, $08, $00, $00 ;; Default silent registers
     .byte $14 ;; Placeholder for speed/tempo
     ;; TODO: .byte length counter
     ;; TODO: .byte loop counter
@@ -349,7 +349,7 @@
 
     ;; Decoder A (6 bytes)
     .addr stream_ch2   ;; stream head
-    .byte $00, $00, $00, $00 ;; TODO: Registers
+    .byte $30, $08, $00, $00 ;; Default silent registers
     .byte $14 ;; Placeholder for speed/tempo
     ;; TODO: .byte length counter
     ;; TODO: .byte loop counter
@@ -357,7 +357,7 @@
 
     ;; Decoder B (6 bytes)
     .addr stream_ch3   ;; stream head
-    .byte $00, $00, $00, $00 ;; TODO: Registers
+    .byte $30, $08, $00, $00 ;; Default silent registers
     .byte $14 ;; Placeholder for speed/tempo
     ;; TODO: .byte length counter
     ;; TODO: .byte loop counter

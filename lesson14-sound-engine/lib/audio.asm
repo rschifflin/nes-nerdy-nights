@@ -69,11 +69,11 @@
   .endproc
 
   .proc Enable
-      LDA #APU_FLAGS_SQ1_ENABLE ; | \
-          ; APU_FLAGS_SQ2_ENABLE | \
-          ; APU_FLAGS_TRI_ENABLE | \
-          ; APU_FLAGS_NOISE_ENABLE
-      STA APUFLAGS ;; TEST: Just enable sq1 for now
+      LDA #APU_FLAGS_SQ1_ENABLE  | \
+           APU_FLAGS_SQ2_ENABLE | \
+           APU_FLAGS_TRI_ENABLE | \
+           APU_FLAGS_NOISE_ENABLE
+      STA APUFLAGS
 
       LDA #APU_ENV_SILENCE
       STA APU_SQ1_ENV
@@ -286,8 +286,8 @@
       STA (r0),Y ;; lo-> stream_head
 
       ;; TODO: Initialize registers
-      ;;;; Duty       | Manual control | Max volume
-      LDA #%10000000  | %00110000      | %00001111
+      ;;;; Duty       | Manual control | Silence
+      LDA #%00000000  | %00110000      | %00000000
       LDY #(AUDIO::Decoder::registers + AUDIO::Registers::env)
       STA (r0),Y
       LDA #%00001000 ;; Allow low notes
