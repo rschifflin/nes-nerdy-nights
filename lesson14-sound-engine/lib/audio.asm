@@ -16,6 +16,73 @@
   .proc Init
       ;; Initialize audio engine
 
+      ;; Set write cache to initial write values
+      ;; SQ1 has normal env and forced sweep
+      LDX #$00
+      LDA APU_ENV_SILENCE
+      STA audio::buffer_ch_write_list,X
+      STA AUDIO::APU_REGISTER_LIST,X
+      INX
+      LDA #%00001000 ;; needed for sweep for some reason
+      STA audio::buffer_ch_write_list,X
+      STA AUDIO::APU_REGISTER_LIST,X
+      INX
+      LDA #%00000000
+      STA audio::buffer_ch_write_list,X
+      STA AUDIO::APU_REGISTER_LIST,X
+      INX
+      STA audio::buffer_ch_write_list,X
+      STA AUDIO::APU_REGISTER_LIST,X
+      INX
+
+      ;; SQ2 has normal env and forced sweep
+      LDA APU_ENV_SILENCE
+      STA audio::buffer_ch_write_list,X
+      STA AUDIO::APU_REGISTER_LIST,X
+      INX
+      LDA #%00001000 ;; needed for sweep for some reason
+      STA audio::buffer_ch_write_list,X
+      STA AUDIO::APU_REGISTER_LIST,X
+      INX
+      LDA #%00000000
+      STA audio::buffer_ch_write_list,X
+      STA AUDIO::APU_REGISTER_LIST,X
+      INX
+      STA audio::buffer_ch_write_list,X
+      STA AUDIO::APU_REGISTER_LIST,X
+      INX
+
+      ;; TRI has tri env and no sweep
+      LDA APU_TRI_SILENCE
+      STA audio::buffer_ch_write_list,X
+      STA AUDIO::APU_REGISTER_LIST,X
+      INX
+      LDA #%00000000
+      STA audio::buffer_ch_write_list,X
+      STA AUDIO::APU_REGISTER_LIST,X
+      INX
+      STA audio::buffer_ch_write_list,X
+      STA AUDIO::APU_REGISTER_LIST,X
+      INX
+      STA audio::buffer_ch_write_list,X
+      STA AUDIO::APU_REGISTER_LIST,X
+      INX
+
+      ;; NOISE has normal env but no sweep
+      LDA APU_ENV_SILENCE
+      STA audio::buffer_ch_write_list,X
+      STA AUDIO::APU_REGISTER_LIST,X
+      INX
+      LDA #%00000000
+      STA audio::buffer_ch_write_list,X
+      STA AUDIO::APU_REGISTER_LIST,X
+      INX
+      STA audio::buffer_ch_write_list,X
+      STA AUDIO::APU_REGISTER_LIST,X
+      INX
+      STA audio::buffer_ch_write_list,X
+      STA AUDIO::APU_REGISTER_LIST,X
+
       ;; Set decoders for tracks
       LDA #<audio::decoders
       STA PLO
@@ -73,7 +140,11 @@
       CPX #$08
       BNE loop_sfx1
 
-      JMP Enable
+      ;; Initially disabled
+      LDA #$FF
+      STA audio::disable
+
+      RTS
   .endproc
 
   .proc Enable
@@ -246,7 +317,7 @@
       BNE loop
 
       PLN_SP 2 ;; Finish using stack
-      RTS
+      JMP Enable
   .endproc
 
   ;;;; InitializeDecoder
@@ -524,6 +595,7 @@
       ORA PHI
       BNE non_null_case ;; silence channel when P is null
     null_case:
+      ;; Don't care about force_write here
       LDA r0 ;; Silence list entries are 1 byte, twice as small as addr list entries.
       LSR A  ;; So we divide by 2
       TAY
@@ -551,7 +623,6 @@
       LDA (PLO),Y
     @write:
       STA audio::buffer_ch_write_list, X
-      ;; TODO: Apply dynamic channel env (volume, duty, etc)
       STA AUDIO::APU_REGISTER_LIST, X
     @ignore:
       INX
@@ -600,7 +671,7 @@
       LDY #AUDIO::Track::channels_active
       LDA (PLO),Y
       BEQ done ;; No channels active
-      PHA ;; Preserve for later
+      STA r0
 
       LDY #AUDIO::Track::audio_header
       LDA (PLO),Y
@@ -609,63 +680,65 @@
       LDA (PLO),Y
       PHA_SP ;; Audio header hi
 
-      PLA ;; Restore
-      AND #AUDIO::CHANNEL_SQ1
+      JMP start_loop
+    loop_args:
+      ;;    X = channel flag      X+1 = decoder offset
+      .byte AUDIO::CHANNEL_SQ1,   AUDIO::Track::sq1
+      .byte AUDIO::CHANNEL_SQ2,   AUDIO::Track::sq2
+      .byte AUDIO::CHANNEL_TRI,   AUDIO::Track::tri
+      .byte AUDIO::CHANNEL_NOISE, AUDIO::Track::noise
+    start_loop:
+      LDY #$00
+    loop:
+      TYA
+      PHA
 
-      BEQ done_sq1
-      LDY #AUDIO::Track::sq1
+      LDA r0 ;; channels_active
+      AND loop_args,Y
+      BEQ next
+      PHA_SP ;; Decoder channel type
+      LDA loop_args+1,Y
+      TAY
       LDA (PLO),Y
       PHA_SP ;; Decoder lo
       INY
       LDA (PLO),Y
       PHA_SP ;; Decoder hi
+      LDA r0
+      PHA
+      LDA PLO
+      PHA
+      LDA PHI
+      PHA
       JSR DecodeStream
-      PLN_SP 2
-
-      ;LDA #audio::track_bgm + AUDIO::Track::channels_active
-    done_sq1:
-
-      ;BIT #AUDIO::CHANNEL_SQ2
-      ;BEQ done_sq2
-      ;; Run square 2 channel
-      ;; ...
-      ;LDA #audio::track_bgm + AUDIO::Track::channels_active
-    done_sq2:
-
-      ;BIT #AUDIO::CHANNEL_TRI
-      ;BEQ done_tri
-      ;; Run tri channel
-      ;; ...
-      ;LDA #audio::track_bgm + AUDIO::Track::channels_active
-    done_tri:
-      ;BIT #AUDIO::CHANNEL_NOISE
-      ;BEQ done
-      ;; Run noise channel
-      ;; ...
-
-      PLN_SP 2 ;; clean up stack
+      PLA
+      STA PHI
+      PLA
+      STA PLO
+      PLA
+      STA r0
+      PLN_SP 3
+    next:
+      PLA
+      TAY
+      INY
+      INY
+      CPY #$08
+      BNE loop
+      PLN_SP 2 ;; Clean up stack
     done:
       RTS
   .endproc
 
-  .proc TickSfx0
-      ;; Same as above with sfx0 addresses
-      ;; ...
-      RTS
-  .endproc
-  .proc TickSfx1
-      ;; Same as above with sfx1 addresses
-      ;; ...
-      RTS
-  .endproc
-
   ;;;; DecodeStream
-  ;; 4-byte stack: 4 args, 0 return
+  ;; 5-byte stack: 5 args, 0 return
   ;; Uses the given decoder with the given audio header to decode the next note
+  ;; Uses the channel flag to determine if we're Triangle
   .proc DecodeStream
       ;; stack frame
-      audio_lo = SW_STACK-4
-      audio_hi = SW_STACK-3
+      audio_lo = SW_STACK-5
+      audio_hi = SW_STACK-4
+      channel    = SW_STACK-3
       decoder_lo = SW_STACK-2
       decoder_hi = SW_STACK-1
 
@@ -684,8 +757,17 @@
       LDA (PLO),Y
       STA r1
 
+      LDA channel,X
+      CMP #AUDIO::CHANNEL_TRI
+      BEQ @when_tri
+    @when_non_tri:
       ;; Duty 50%    | Manual control | Volume max (15)
       LDA #%10000000 | %00110000      | %00001111
+      JMP set_env
+    @when_tri:
+      ;; Channel on  | Volume on
+      LDA #%10000000 | %01111111
+    set_env:
       LDY #(AUDIO::Decoder::registers + AUDIO::Registers::env)
       STA (PLO),Y
 

@@ -80,12 +80,13 @@ clear_stack:
   JSR InitMemory
 
   JSR Audio::Init
-  LDA #<test_song_1
-  PHA_SP
-  LDA #>test_song_1
-  PHA_SP
-  JSR Audio::PlayBGM
-  PLN_SP 2
+
+  ;LDA #<test_song_2
+  ;PHA_SP
+  ;LDA #>test_song_2
+  ;PHA_SP
+  ;JSR Audio::PlaySFX0
+  ;PLN_SP 2
 
   ;; Wait for PPU to vblank. PPU hw finishing warming up
   JSR WaitVblank
@@ -173,9 +174,7 @@ NMI:
     ;; Audio is a real-time task: It must maintain a consistent BPM even in the face of cpu slowdown and skipped renders.
     ;; The NMI will occur no matter what, even if we choose to skip rendering due to cpu slowdown.
     ;; Thus, we always process audio events once per frame, and only in the NMI
-
     JSR Audio::PlayFrame
-  skip_note:
 
     ;; Restore in-progress flags/registers
     POP_IRQ

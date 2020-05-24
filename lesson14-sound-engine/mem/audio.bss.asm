@@ -28,7 +28,7 @@ decoders:
     tri_last:   .tag AUDIO::Registers
     noise_last: .tag AUDIO::Registers
 
-  ;; Set by BufferPlay, otherwise defaults to last write
+  ;; Set by PrepareChannelBuffer, otherwise defaults to last write
   buffer_ch_addr_list:
     sq1_addr:   .res 2 ;; -> AUDIO::Registers
     sq2_addr:   .res 2 ;; -> AUDIO::Registers
