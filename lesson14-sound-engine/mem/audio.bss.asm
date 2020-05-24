@@ -1,5 +1,6 @@
 .scope audio
   disable:    .res 1
+  force_write: .res 1
 
 tracks:
   track_bgm:        .tag AUDIO::Track

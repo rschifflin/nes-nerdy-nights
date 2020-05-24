@@ -80,20 +80,12 @@ clear_stack:
   JSR InitMemory
 
   JSR Audio::Init
-
-  ;; Initialize any initial state memory
-  LDA #$FF
-  STA prev_note
-  STA prev_note+1
-
-  LDA #$08
-  STA current_note_volume
-  LDA #%00000111
-  STA current_apu_flags
-
-  LDA #%00001000
-  STA APU_SQ1_SWEEP ;; Allows low notes
-  STA APU_SQ2_SWEEP ;; Allows low notes
+  LDA #<test_song_1
+  PHA_SP
+  LDA #>test_song_1
+  PHA_SP
+  JSR Audio::PlayBGM
+  PLN_SP 2
 
   ;; Wait for PPU to vblank. PPU hw finishing warming up
   JSR WaitVblank
@@ -182,35 +174,7 @@ NMI:
     ;; The NMI will occur no matter what, even if we choose to skip rendering due to cpu slowdown.
     ;; Thus, we always process audio events once per frame, and only in the NMI
 
-    ;; Configure channel enables
-    LDA current_apu_flags
-    STA APUFLAGS
-
-    ;; Set SQ1,SQ2
-    LDA current_note_volume
-    ORA #%10110000 ;; Apply 25% Duty, Manual Volume
-    STA APU_SQ1_ENV
-
-    LDA current_note_volume
-    ORA #%11110000 ;; Apply 50% Duty, Manual Volume
-    STA APU_SQ2_ENV
-
-    ;; Set note
-    LDA current_note
-    LDX current_note+1
-
-    CMP prev_note
-    BNE play_note
-    CPX prev_note+1
-    BEQ skip_note
-  play_note:
-    STA APU_SQ1_NOTE_LO
-    STA APU_SQ2_NOTE_LO
-    STA APU_TRI_NOTE_LO
-
-    STX APU_SQ1_NOTE_HI
-    STX APU_SQ2_NOTE_HI
-    STX APU_TRI_NOTE_HI
+    JSR Audio::PlayFrame
   skip_note:
 
     ;; Restore in-progress flags/registers
@@ -249,92 +213,60 @@ run:
         LDA p1_controller_rising
         AND #CONTROLLER_LEFT
         BEQ no_left
-        DEC current_note_index
-        BPL @no_wrap
-        LDA #$5F
-        STA current_note_index
-      @no_wrap:
-        JMP done
+        ;; when left pressed...
       no_left:
 
         LDA p1_controller_rising
         AND #CONTROLLER_RIGHT
         BEQ no_right
-        LDA current_note_index
-        CLC
-        ADC #$01
-        CMP #$60
-        BCC @no_wrap
-        LDA #$00
-      @no_wrap:
-        STA current_note_index
-        JMP done
+        ;; when right pressed...
       no_right:
 
         LDA p1_controller_rising
         AND #CONTROLLER_UP
         BEQ no_up
-        LDA current_note_volume
-        CLC
-        ADC #$01
-        CMP #$10
-        BCS @at_ceil
-        STA current_note_volume
-      @at_ceil:
-        JMP done
+        ;; when up pressed...
       no_up:
 
         LDA p1_controller_rising
         AND #CONTROLLER_DOWN
         BEQ no_down
-        LDA current_note_volume
-        SEC
-        SBC #$01
-        BMI @at_floor
-        STA current_note_volume
-      @at_floor:
-        JMP done
+        ;; when down pressed...
       no_down:
 
         LDA p1_controller_rising
         AND #CONTROLLER_A
         BEQ no_a
-        LDA current_apu_flags
-        AND #%00000001 ;; Isolate the sq1 bit
-        EOR #%00000001 ;; Toggle 0->1, 1->0
-        STA r0
-        LDA current_apu_flags
-        AND #%11111110 ;; Erase the sq1 bit
-        ORA r0         ;; Apply the sq1 bit
-        STA current_apu_flags
+        LDA #<test_song_1
+        PHA_SP
+        LDA #>test_song_1
+        PHA_SP
+        JSR Audio::PlayBGM
+        PLN_SP 2
         JMP done
       no_a:
 
         LDA p1_controller_rising
         AND #CONTROLLER_B
         BEQ no_b
-        LDA current_apu_flags
-        AND #%00000010 ;; Isolate the sq2 bit
-        EOR #%00000010 ;; Toggle 0->1, 1->0
-        STA r0
-        LDA current_apu_flags
-        AND #%11111101 ;; Erase the sq2 bit
-        ORA r0         ;; Apply the sq2 bit
-        STA current_apu_flags
+        LDA #<test_song_2
+        PHA_SP
+        LDA #>test_song_2
+        PHA_SP
+        JSR Audio::PlayBGM
+        PLN_SP 2
         JMP done
       no_b:
 
         LDA p1_controller_rising
         AND #CONTROLLER_SELECT
         BEQ no_select
-        LDA current_apu_flags
-        AND #%00000100 ;; Isolate the tri bit
-        EOR #%00000100 ;; Toggle 0->1, 1->0
-        STA r0
-        LDA current_apu_flags
-        AND #%11111011 ;; Erase the tri bit
-        ORA r0         ;; Apply the tri bit
-        STA current_apu_flags
+        LDA #<test_song_3
+        PHA_SP
+        LDA #>test_song_3
+        PHA_SP
+        JSR Audio::PlayBGM
+        PLN_SP 2
         JMP done
       no_select:
 
@@ -342,21 +274,6 @@ run:
     .endscope
 
     ;; Update game state
-
-    ;; Update current note
-    LDA current_note
-    STA prev_note
-    LDA current_note+1
-    STA prev_note+1
-
-    LDA current_note_index
-    ASL A
-    TAX
-
-    LDA notes,X
-    STA current_note
-    LDA notes+1,X
-    STA current_note+1
 
     JMP run
 
@@ -385,6 +302,9 @@ strings:
 
 notes:
   .include "data/notes_ntsc.asm"
+
+test_song:
+  .include "data/test_song.asm"
 
 .segment "CHR0" ; 8kb, always present
   .incbin "assets/mario.chr" ; test data to fill the chr bank

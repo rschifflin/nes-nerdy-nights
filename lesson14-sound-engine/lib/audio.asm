@@ -69,11 +69,11 @@
   .endproc
 
   .proc Enable
-      LDA #APU_FLAGS_SQ1_ENABLE | \
-           APU_FLAGS_SQ2_ENABLE | \
-           APU_FLAGS_TRI_ENABLE | \
-           APU_FLAGS_NOISE_ENABLE
-      STA APUFLAGS
+      LDA #APU_FLAGS_SQ1_ENABLE ; | \
+          ; APU_FLAGS_SQ2_ENABLE | \
+          ; APU_FLAGS_TRI_ENABLE | \
+          ; APU_FLAGS_NOISE_ENABLE
+      STA APUFLAGS ;; TEST: Just enable sq1 for now
 
       LDA #APU_ENV_SILENCE
       STA APU_SQ1_ENV
@@ -85,6 +85,8 @@
 
       LDA #$00
       STA audio::disable
+      LDA #$01
+      STA audio::force_write
       RTS
   .endproc
 
@@ -284,6 +286,18 @@
       STA (r0),Y ;; lo-> stream_head
 
       ;; TODO: Initialize registers
+      ;;;; Duty       | Manual control | Max volume
+      LDA #%10000000  | %00110000      | %00001111
+      LDY #(AUDIO::Decoder::registers + AUDIO::Registers::env)
+      STA (r0),Y
+      LDA #%00001000 ;; Allow low notes
+      LDY #(AUDIO::Decoder::registers + AUDIO::Registers::sweep)
+      STA (r0),Y
+      LDA #%00000000 ;; Null note
+      LDY #(AUDIO::Decoder::registers + AUDIO::Registers::note_lo)
+      STA (r0),Y
+      LDY #(AUDIO::Decoder::registers + AUDIO::Registers::note_hi)
+      STA (r0),Y
       RTS
   .endproc
 
@@ -316,7 +330,7 @@
       ASL r1
       ORA temp0
 
-      BEQ done ;; When no tracks have this channel active, don't bother playing
+      BEQ null ;; When no tracks have this channel active, return the null track
       ;; Otherwise, compare the high bit of the OR'd channels, shifting until
       ;; an active track is found. The active track is given as an offset into the track priority list.
       LDX #$02 ;; Start with highest priority
@@ -338,6 +352,11 @@
       STA PHI
     done:
       RTS
+
+    null:
+      STA PLO
+      STA PHI
+      RTS
   .endproc
 
   ;;;; PrepareChannelBuffer
@@ -357,6 +376,12 @@
       ;; multiply by 2 to index into word-sized addresses
       ASL r0
 
+      ;; If our track is null, write null to the addr list
+      LDA PLO
+      ORA PHI
+      BEQ write
+
+      ;; Otherwise...
       LDA #AUDIO::Track::sq1
       CLC
       ADC r0 ;; Offset of decoder address
@@ -369,8 +394,9 @@
       LDA (PLO),Y ;; Load decoder hi
       ADC #$00 ;; Include carry from lo+offset if needed
       STA PHI
-      LDX r0
       PLA ;; Registers lo
+    write:
+      LDX r0
       STA audio::buffer_ch_addr_list,X
       LDA PHI ;; Registers hi
       STA audio::buffer_ch_addr_list+1,X
@@ -431,13 +457,22 @@
       TAX
       LDY #$00 ;; Index into register list
     inner_loop:
+      ;; If force_write is set, always write
+      LDA audio::force_write
+      BNE @force_write
+
+      ;; Else, only write if we differ from the cache
       LDA (PLO),Y
       CMP audio::buffer_ch_write_list, X
-      BEQ @no_store
+      BEQ @ignore
+      JMP @write
+    @force_write:
+      LDA (PLO),Y
+    @write:
       STA audio::buffer_ch_write_list, X
       ;; TODO: Apply dynamic channel env (volume, duty, etc)
       STA AUDIO::APU_REGISTER_LIST, X
-    @no_store:
+    @ignore:
       INX
       INY
       CPY #$04
@@ -451,17 +486,32 @@
       INX
       CPX #$08
       BNE loop
+
+      LDA #$00
+      STA audio::force_write
       RTS
   .endproc
 
   .proc TickBgm
-      ;LDA #audio::track_bgm + AUDIO::Track::channels_active
-      ;BEQ done ;; No channels active
+      LDA audio::track_bgm + AUDIO::Track::channels_active
+      BEQ done ;; No channels active
 
-      ;BIT #AUDIO::CHANNEL_SQ1
-      ;BEQ done_sq1
-      ;; Run square channel
-      ;;...
+      TAY
+      LDA audio::track_bgm + AUDIO::Track::audio_header
+      PHA_SP ;; Audio header lo
+      LDA audio::track_bgm + AUDIO::Track::audio_header + 1
+      PHA_SP ;; Audio header hi
+
+      TYA
+      AND #AUDIO::CHANNEL_SQ1
+      BEQ done_sq1
+      LDA audio::track_bgm + AUDIO::Track::sq1
+      PHA_SP ;; Decoder lo
+      LDA audio::track_bgm + AUDIO::Track::sq1 + 1
+      PHA_SP ;; Decoder hi
+      JSR DecodeStream
+      PLN_SP 2
+
       ;LDA #audio::track_bgm + AUDIO::Track::channels_active
     done_sq1:
 
@@ -482,8 +532,10 @@
       ;BEQ done
       ;; Run noise channel
       ;; ...
+
+      PLN_SP 2 ;; clean up stack
     done:
-     RTS
+      RTS
   .endproc
 
   .proc TickSfx0
@@ -494,6 +546,44 @@
   .proc TickSfx1
       ;; Same as above with sfx1 addresses
       ;; ...
+      RTS
+  .endproc
+
+  ;;;; DecodeStream
+  ;; 4-byte stack: 4 args, 0 return
+  ;; Uses the given decoder with the given audio header to decode the next note
+  .proc DecodeStream
+      ;; stack frame
+      audio_lo = SW_STACK-4
+      audio_hi = SW_STACK-3
+      decoder_lo = SW_STACK-2
+      decoder_hi = SW_STACK-1
+
+      LDX SP
+
+      ;; For now, just play whatever note is at stream head forever
+      LDA decoder_lo,X
+      STA PLO
+      LDA decoder_hi,X
+      STA PHI
+
+      LDY #AUDIO::Decoder::stream_head
+      LDA (PLO),Y
+      STA r0
+      INY
+      LDA (PLO),Y
+      STA r1
+
+      LDY #$00
+      LDA (r0),Y
+      LDY #(AUDIO::Decoder::registers + AUDIO::Registers::note_lo)
+      STA (PLO),Y
+
+      LDY #$01
+      LDA (r0),Y
+      LDY #(AUDIO::Decoder::registers + AUDIO::Registers::note_hi)
+      STA (PLO),Y
+
       RTS
   .endproc
 

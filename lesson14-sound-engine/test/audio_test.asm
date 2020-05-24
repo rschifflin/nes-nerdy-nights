@@ -32,6 +32,12 @@
     .addr audio::decoder_9 ;; ptr to decoder
     .addr audio::decoder_A ;; ptr to decoder
     .addr audio::decoder_B ;; ptr to decoder
+
+    ;; Disable
+    .byte $00
+    ;; Force Write
+    .byte $01
+
   test:
     JSR Audio::Init
 
@@ -39,11 +45,23 @@
   loop:
     LDA expected,X
     STA TEST_EXPECTED,X
-    LDA audio::track_bgm, X
-    STA TEST_ACTUAL, X
+    LDA audio::track_bgm,X
+    STA TEST_ACTUAL,X
     INX
     CPX #$21
     BNE loop
+
+    LDA expected,X
+    STA TEST_EXPECTED,X
+    LDA audio::disable
+    STA TEST_ACTUAL,X
+    INX
+    LDA expected,X
+    STA TEST_EXPECTED,X
+    LDA audio::force_write
+    STA TEST_ACTUAL,X
+    INX
+
     SHOW
     RTS
 .endproc
