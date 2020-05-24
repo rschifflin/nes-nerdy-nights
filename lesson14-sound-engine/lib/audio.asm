@@ -6,8 +6,16 @@
     .addr audio::track_bgm ;; Lowest priority
     .addr audio::track_sfx0
     .addr audio::track_sfx1 ;; Highest priority
+
+  channel_silence_list:
+    .byte APU_ENV_SILENCE
+    .byte APU_ENV_SILENCE
+    .byte APU_TRI_SILENCE
+    .byte APU_ENV_SILENCE
+
   .proc Init
       ;; Initialize audio engine
+
       ;; Set decoders for tracks
       LDA #<audio::decoders
       STA PLO
@@ -217,8 +225,8 @@
       PHA
 
       ;; Arg0,1 = Audio Addr
-      ;; Arg2,3 = Decoder Addr
-      ;; Arg4   = Audio stream index
+      ;; Arg2   = Channel offset (0 = sq1, 1 = sq2, 2 = tri, 3 = noise)
+      ;; Arg3,4 = Decoder Addr
       JSR InitializeDecoder
       PLN_SP 3 ;; Preserve Audio addr still
 
@@ -248,7 +256,7 @@
       ;; Stack frame
       audio_lo = SW_STACK-5
       audio_hi = SW_STACK-4
-      audio_index = SW_STACK-3
+      channel_offset = SW_STACK-3 ;; 0 = sq1, 1 = sq2, 2 = tri, 3 = noise
       decoder_lo = SW_STACK-2
       decoder_hi = SW_STACK-1
 
@@ -269,10 +277,10 @@
       LDY #AUDIO::Decoder::spempo
       STA (r0),Y
 
-      LDA audio_index,X
+      LDA channel_offset,X
       ASL A
       CLC
-      ADC #AUDIO::Stream::ch0 ;; Offset to channel addresses
+      ADC #AUDIO::Stream::ch0 ;; base of channel addresses
       TAY
       LDA (PLO),Y ;; lo-> ch_x
       TAX
@@ -285,19 +293,19 @@
       TXA
       STA (r0),Y ;; lo-> stream_head
 
-      ;; TODO: Initialize registers
-      ;;;; Duty       | Manual control | Silence
-      LDA #%00000000  | %00110000      | %00000000
+      LDX SP
+      LDY channel_offset,X
+      LDA channel_silence_list,Y ;; Use channel offset to determine silence env type
       LDY #(AUDIO::Decoder::registers + AUDIO::Registers::env)
-      STA (r0),Y
+      STA (r0),Y ;; Write env
       LDA #%00001000 ;; Allow low notes
       LDY #(AUDIO::Decoder::registers + AUDIO::Registers::sweep)
-      STA (r0),Y
+      STA (r0),Y ;; Write sweep
       LDA #%00000000 ;; Null note
       LDY #(AUDIO::Decoder::registers + AUDIO::Registers::note_lo)
-      STA (r0),Y
+      STA (r0),Y ;; Write note_lo
       LDY #(AUDIO::Decoder::registers + AUDIO::Registers::note_hi)
-      STA (r0),Y
+      STA (r0),Y ;; Write note_hi
       RTS
   .endproc
 
@@ -507,16 +515,27 @@
       STA PHI
 
       TXA
-      PHA ;; Preserve X for after the inner loop
-
+      STA r0 ;; Preserve addr list counter for after the inner loop
       ASL A ;; Register list entries are 4 bytes, twice as big as addr list entries.
             ;; So we multiply our addr list offset by 2
       TAX
 
       LDA PLO
       ORA PHI
-      BEQ null_case ;; silence channel when P is null
+      BNE non_null_case ;; silence channel when P is null
+    null_case:
+      LDA r0 ;; Silence list entries are 1 byte, twice as small as addr list entries.
+      LSR A  ;; So we divide by 2
+      TAY
+      LDA channel_silence_list,Y
+      CMP audio::buffer_ch_write_list, X
+      BEQ @ignore
+      STA audio::buffer_ch_write_list, X
+      STA AUDIO::APU_REGISTER_LIST, X
+    @ignore:
+      JMP next
 
+    non_null_case:
       LDY #$00 ;; Index into register list
     inner_loop:
       ;; If force_write is set, always write
@@ -539,20 +558,10 @@
       INY
       CPY #$04
       BNE inner_loop
-      JMP write_done
-    null_case:
-      ;; Dont care about force_write here
-      LDA #APU_ENV_SILENCE
-      CMP audio::buffer_ch_write_list, X
-      BEQ @ignore
-      STA audio::buffer_ch_write_list, X
-      STA AUDIO::APU_REGISTER_LIST, X
-    @ignore:
-    write_done:
-      PLA
-      TAX ;; Restore X from outer loop
 
-      INX
+    next:
+      LDX r0 ;; Restore addr list counter from outer loop
+      INX    ;; Addr lists are word-sized, so inc by 2
       INX
       CPX #$08
       BNE loop
@@ -560,6 +569,7 @@
       LDA #$00
       STA audio::force_write
       RTS
+
   .endproc
 
   ;; Goes through all track addrs and ticks each track

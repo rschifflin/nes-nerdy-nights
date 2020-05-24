@@ -123,7 +123,7 @@
 
     ;; Decoder 2 (6 bytes)
     .addr stream_ch2   ;; stream head
-    .byte $30, $08, $00, $00 ;; Default silent registers
+    .byte $80, $08, $00, $00 ;; Default silent registers (Note, this is a triangle ch)
     .byte $E0 ;; Placeholder for speed/tempo
     ;; TODO: .byte length counter
     ;; TODO: .byte loop counter
@@ -236,7 +236,7 @@
 
     ;; Decoder 6 (6 bytes)
     .addr stream_ch2   ;; stream head
-    .byte $30, $08, $00, $00 ;; Default silent registers
+    .byte $80, $08, $00, $00 ;; Default silent registers (Note, this is a triangle ch)
     .byte $FA ;; Placeholder for speed/tempo
     ;; TODO: .byte length counter
     ;; TODO: .byte loop counter
@@ -349,7 +349,7 @@
 
     ;; Decoder A (6 bytes)
     .addr stream_ch2   ;; stream head
-    .byte $30, $08, $00, $00 ;; Default silent registers
+    .byte $80, $08, $00, $00 ;; Default silent registers (Note, this is a triangle ch)
     .byte $14 ;; Placeholder for speed/tempo
     ;; TODO: .byte length counter
     ;; TODO: .byte loop counter
