@@ -301,6 +301,67 @@
       RTS
   .endproc
 
+  ;;;; StopBGM
+  ;; 0-byte stack: 0 args, 0 return
+  ;; Clear the BGM track
+  .proc StopBGM
+      LDA #<audio::track_bgm
+      PHA_SP
+      LDA #>audio::track_bgm
+      PHA_SP
+      JSR StopTrack
+      PLN_SP 2
+      RTS
+  .endproc
+
+  ;;;; StopSFX0
+  ;; 0-byte stack: 0 args, 0 return
+  ;; Clear the SFX0 track (lo prio)
+  .proc StopSFX0
+      LDA #<audio::track_sfx0
+      PHA_SP
+      LDA #>audio::track_sfx0
+      PHA_SP
+      JSR StopTrack
+      PLN_SP 2
+      RTS
+  .endproc
+
+  ;;;; StopSFX1
+  ;; 0-byte stack: 0 args, 0 return
+  ;; Clear the SFX1 track (hi prio)
+  .proc StopSFX1
+      LDA #<audio::track_sfx1
+      PHA_SP
+      LDA #>audio::track_sfx1
+      PHA_SP
+      JSR StopTrack
+      PLN_SP 2
+      RTS
+  .endproc
+
+  ;;;; StopTrack
+  ;; 2-byte stack: 2 args, 0 return
+  ;; Stops the given track
+  .proc StopTrack
+      ;; stack frame
+      track_addr_lo = SW_STACK-2
+      track_addr_hi = SW_STACK-1
+
+      LDX SP
+      LDA track_addr_lo,X
+      STA PLO
+      LDA track_addr_hi,X
+      STA PHI
+
+      ;; make all channels inactive
+      LDA #$00
+      LDY #AUDIO::Track::channels_active
+      STA (PLO),Y
+
+      RTS
+  .endproc
+
   ;;;; TrackForChannel
   ;; 0-byte stack: 0 args, 0 return
   ;; PRESERVES r0
@@ -446,8 +507,6 @@
       STA PLO
       LDA audio::buffer_ch_addr_list+1,X
       STA PHI
-      ORA PLO
-      BEQ next ;; skip P when its null
 
       TXA
       PHA ;; Preserve X for after the inner loop
@@ -455,6 +514,11 @@
       ASL A ;; Register list entries are 4 bytes, twice as big as addr list entries.
             ;; So we multiply our addr list offset by 2
       TAX
+
+      LDA PLO
+      ORA PHI
+      BEQ null_case ;; silence channel when P is null
+
       LDY #$00 ;; Index into register list
     inner_loop:
       ;; If force_write is set, always write
@@ -477,11 +541,19 @@
       INY
       CPY #$04
       BNE inner_loop
-
+      JMP write_done
+    null_case:
+      ;; Dont care about force_write here
+      LDA #APU_ENV_SILENCE
+      CMP audio::buffer_ch_write_list, X
+      BEQ @ignore
+      STA audio::buffer_ch_write_list, X
+      STA AUDIO::APU_REGISTER_LIST, X
+    @ignore:
+    write_done:
       PLA
       TAX ;; Restore X from outer loop
 
-    next:
       INX
       INX
       CPX #$08
@@ -573,6 +645,11 @@
       INY
       LDA (PLO),Y
       STA r1
+
+      ;; Duty 50%    | Manual control | Volume max (15)
+      LDA #%10000000 | %00110000      | %00001111
+      LDY #(AUDIO::Decoder::registers + AUDIO::Registers::env)
+      STA (PLO),Y
 
       LDY #$00
       LDA (r0),Y

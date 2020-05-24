@@ -261,12 +261,7 @@ run:
         LDA p1_controller_rising
         AND #CONTROLLER_SELECT
         BEQ no_select
-        LDA #<test_song_3
-        PHA_SP
-        LDA #>test_song_3
-        PHA_SP
-        JSR Audio::PlayBGM
-        PLN_SP 2
+        JSR Audio::StopBGM
         JMP done
       no_select:
 
