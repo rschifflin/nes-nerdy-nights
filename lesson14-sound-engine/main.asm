@@ -25,14 +25,6 @@ p2_controller_prev: .res 1 ;; Holds last frame's value of p2_controller
 p1_controller_rising: .res 1 ;; Holds p1_controller fresh press
 p2_controller_rising: .res 1 ;; Holds p2_controller fresh press
 
-current_note_index: .res 1
-current_note: .res 2
-current_note_volume: .res 1
-current_apu_flags: .res 1
-
-prev_note: .res 2
-prev_note_volume: .res 1
-
 .segment "PRG1" ;; Fixed PRG ROM. Always present
   .include "lib/core.asm"   ;; 6502 basic utilities. Should always remain banked in
   .include "lib/stack.asm"  ;; Subroutines for software stack. Should always remain banked in.
@@ -295,7 +287,7 @@ sprites:
 strings:
   .include "data/strings.asm"
 
-notes:
+note_table:
   .include "data/notes_ntsc.asm"
 
 test_song:

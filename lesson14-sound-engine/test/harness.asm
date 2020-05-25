@@ -49,18 +49,22 @@ clear_stack:
   JMP run
 
 .macro TEST subroutine
-  LDA TEST_COUNT_TOTAL_LO
-  CLC
-  ADC #$01
-  STA TEST_COUNT_TOTAL_LO
-  LDA TEST_COUNT_TOTAL_HI
-  ADC #$00
-  STA TEST_COUNT_TOTAL_HI
+  INC_TEST_NO
   JSR TestClearRAM
   JSR TestClearExpectedValue
   JSR TestClearActualValue
   JSR subroutine
 .endmacro
+
+.macro INC_TEST_NO
+  .scope ;; anonymous
+      INC TEST_COUNT_TOTAL_LO
+      BNE @skip
+      INC TEST_COUNT_TOTAL_HI
+    @skip:
+  .endscope
+.endmacro
+
 .macro SHOW
   LDA TEST_COUNT_TOTAL_LO
   LDX TEST_COUNT_TOTAL_HI

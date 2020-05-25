@@ -13,6 +13,13 @@
 
   APU_REGISTER_LIST = $4000
 
+  SPEED_MASK = %00000111
+
+  .scope OP_CODES
+    SILENCE = $60
+    STOP = $61
+  .endscope
+
   .struct Registers
     env     .byte
     sweep   .byte
@@ -46,10 +53,15 @@
   .struct Decoder
     stream_head  .addr    ;; -> audio start
     registers    .tag Registers
-    spempo       .byte ;; ssst-tttt , 3 bits of speed and 5 bits of tempo
-    tick_counter .byte ;; Increments 1 every tick
-    tock_counter .byte ;; Increments by n every m ticks, where n is tempo and m is speed
-    ;; length counter?
+    spempo       .byte ;; tttt-tsss , 3 bits of speed and 5 bits of tempo
+                       ;; Speed is 0-7, equal to (# of ticks per tock) - 1
+                       ;; Leave tempo for now but in theory we could adjust music
+                       ;; dynamically by extending notes (aka
+                       ;; increase the length of the current note by another tock)
+                       ;; when the note length would cross a new tempo beat boundary.
+    tick_counter .byte ;; Filled to Speed and decremented every tick. Produces a quarter of a beat on rollover.
+
+    ; length counter? ;;
     ;; loop counter?
     ;; channel done?
     ;; etc

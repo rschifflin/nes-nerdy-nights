@@ -1,10 +1,14 @@
 .include "../defs/nes.def"
 .include "../defs/audio.def"
+.include "../defs/notes_ntsc.def"
 .segment "BSS"
 .include "../mem/audio.bss.asm"
 
 .include "harness.asm"
 .include "../lib/audio.asm"
+
+note_table:
+  .include "../data/notes_ntsc.asm"
 
 .proc TestInit
     JMP test
@@ -90,7 +94,6 @@
     .byte $30, $08, $00, $00 ;; Default silent registers
     .byte $E0 ;; Placeholder for speed/tempo
     .byte $00 ;; Tick counter
-    .byte $00 ;; Tock counter
     ;; TODO: .byte loop counter
     ;; TODO: .byte channel done?
 
@@ -99,7 +102,6 @@
     .byte $30, $08, $00, $00 ;; Default silent registers
     .byte $E0 ;; Placeholder for speed/tempo
     .byte $00 ;; Tick counter
-    .byte $00 ;; Tock counter
     ;; TODO: .byte length counter
     ;; TODO: .byte loop counter
     ;; TODO: .byte channel done?
@@ -109,7 +111,6 @@
     .byte $80, $08, $00, $00 ;; Default silent registers (Note, this is a triangle ch)
     .byte $E0 ;; Placeholder for speed/tempo
     .byte $00 ;; Tick counter
-    .byte $00 ;; Tock counter
     ;; TODO: .byte length counter
     ;; TODO: .byte loop counter
     ;; TODO: .byte channel done?
@@ -119,7 +120,6 @@
     .byte $30, $08, $00, $00 ;; Default silent registers
     .byte $E0 ;; Placeholder for speed/tempo
     .byte $00 ;; Tick counter
-    .byte $00 ;; Tock counter
     ;; TODO: .byte length counter
     ;; TODO: .byte loop counter
     ;; TODO: .byte channel done?
@@ -207,7 +207,6 @@
     .byte $30, $08, $00, $00 ;; Default silent registers
     .byte $FA ;; Placeholder for speed/tempo
     .byte $00 ;; Tick counter
-    .byte $00 ;; Tock counter
     ;; TODO: .byte length counter
     ;; TODO: .byte loop counter
     ;; TODO: .byte channel done?
@@ -217,7 +216,6 @@
     .byte $30, $08, $00, $00 ;; Default silent registers
     .byte $FA ;; Placeholder for speed/tempo
     .byte $00 ;; Tick counter
-    .byte $00 ;; Tock counter
     ;; TODO: .byte length counter
     ;; TODO: .byte loop counter
     ;; TODO: .byte channel done?
@@ -227,7 +225,6 @@
     .byte $80, $08, $00, $00 ;; Default silent registers (Note, this is a triangle ch)
     .byte $FA ;; Placeholder for speed/tempo
     .byte $00 ;; Tick counter
-    .byte $00 ;; Tock counter
     ;; TODO: .byte length counter
     ;; TODO: .byte loop counter
     ;; TODO: .byte channel done?
@@ -237,7 +234,6 @@
     .byte $30, $08, $00, $00 ;; Default silent registers
     .byte $FA ;; Placeholder for speed/tempo
     .byte $00 ;; Tick counter
-    .byte $00 ;; Tock counter
     ;; TODO: .byte length counter
     ;; TODO: .byte loop counter
     ;; TODO: .byte channel done?
@@ -325,7 +321,6 @@
     .byte $30, $08, $00, $00 ;; Default silent registers
     .byte $14 ;; Placeholder for speed/tempo
     .byte $00 ;; Tick counter
-    .byte $00 ;; Tock counter
     ;; TODO: .byte length counter
     ;; TODO: .byte loop counter
     ;; TODO: .byte channel done?
@@ -335,7 +330,6 @@
     .byte $30, $08, $00, $00 ;; Default silent registers
     .byte $14 ;; Placeholder for speed/tempo
     .byte $00 ;; Tick counter
-    .byte $00 ;; Tock counter
     ;; TODO: .byte length counter
     ;; TODO: .byte loop counter
     ;; TODO: .byte channel done?
@@ -345,7 +339,6 @@
     .byte $80, $08, $00, $00 ;; Default silent registers (Note, this is a triangle ch)
     .byte $14 ;; Placeholder for speed/tempo
     .byte $00 ;; Tick counter
-    .byte $00 ;; Tock counter
     ;; TODO: .byte length counter
     ;; TODO: .byte loop counter
     ;; TODO: .byte channel done?
@@ -355,7 +348,6 @@
     .byte $30, $08, $00, $00 ;; Default silent registers
     .byte $14 ;; Placeholder for speed/tempo
     .byte $00 ;; Tick counter
-    .byte $00 ;; Tock counter
     ;; TODO: .byte length counter
     ;; TODO: .byte loop counter
     ;; TODO: .byte channel done?
@@ -738,19 +730,19 @@
   JMP test
   audio_stream:
     .byte %00001111 ;; All channels
-    .byte %11000000 | %00011001 ;; Speed 6, Tempo 25 == Default speed at 150bpm
-    ;; In the future:
-    ;; .repeat n .byte instruments?
-    ;; .repeat n .byte patterns?
+    .byte %00000101 ;; Speed 5 aka 24 ticks per beat, 150bpm
+    ;; .repeat n .byte envelopes?
     ;; .repeat n .byte frames?
+
     .addr stream_ch0
     .addr stream_ch1
     .addr stream_ch1
     .addr stream_ch1
+
   stream_ch0:
-    .byte $A0, $A1
-    .byte $B0, $B1
-    .byte $C0, $C1
+    .byte $0D ;; Bb octave 1
+    .byte $17 ;; G# octave 1
+    .byte $1B ;; C octave 2
   stream_ch1:
     .byte $FF
 
@@ -767,16 +759,14 @@
     PHA_SP
     JSR Audio::InitializeDecoder
 
-    ;; 6 ticks for a tock, 4 tocks for a beat
-    .repeat 24
-      JSR Audio::DecodeStream
-    .endrepeat
-    PLN_SP 5
-    ;; Should advance the stream from note $A0 $A1 to note $B0 $B1
+    LDA #$00 ;; Prepare return value, ignored for this test
+    PHA_SP
+    ;; Initial tick always succeeds
+    JSR Audio::DecodeStream
 
-    LDA #$B0
+    LDA #<NOTE_B_FLAT_1
     STA TEST_EXPECTED
-    LDA #$B1
+    LDA #>NOTE_B_FLAT_1
     STA TEST_EXPECTED+1
 
     LDA audio::decoder_0 + AUDIO::Decoder::registers + AUDIO::Registers::note_lo
@@ -785,6 +775,195 @@
     STA TEST_ACTUAL+1
 
     SHOW
+    INC_TEST_NO
+
+    ;; At speed 5, 6 ticks is needed to advance
+    .repeat 5
+      JSR Audio::DecodeStream
+    .endrepeat
+    ;; Should not be enough to advance the stream from note $A0 $A1 to note $B0 $B1
+
+    SHOW
+    INC_TEST_NO
+
+    ;; 6 is just enough
+    JSR Audio::DecodeStream
+    PLN_SP 6
+
+    LDA #<NOTE_G_SHARP_1
+    STA TEST_EXPECTED
+    LDA #>NOTE_G_SHARP_1
+    STA TEST_EXPECTED+1
+
+    LDA audio::decoder_0 + AUDIO::Decoder::registers + AUDIO::Registers::note_lo
+    STA TEST_ACTUAL
+    LDA audio::decoder_0 + AUDIO::Decoder::registers + AUDIO::Registers::note_hi
+    STA TEST_ACTUAL+1
+
+    SHOW
+
+    RTS
+.endproc
+
+.proc Test1DecodeStream
+  JMP test
+  audio_stream:
+    .byte %00001111 ;; All channels
+    .byte %00000101 ;; Speed 5 aka 24 ticks per beat, 150bpm
+    ;; .repeat n .byte envelopes?
+    ;; .repeat n .byte frames?
+
+    .addr stream_ch0
+    .addr stream_ch1
+    .addr stream_ch1
+    .addr stream_ch1
+
+  stream_ch0:
+    .byte $0D ;; Bb octave 1
+    .byte $17 ;; G# octave 1
+    .byte $1B ;; C octave 2
+    .byte AUDIO::OP_CODES::STOP
+    .byte $1B ;; notes past stop; should never be played
+    .byte $17 ;; notes past stop; should never be played
+    .byte $0D ;; notes past stop; should never be played
+  stream_ch1:
+    .byte $FF
+
+  test:
+    LDA #<audio_stream
+    PHA_SP
+    LDA #>audio_stream
+    PHA_SP
+    LDA #AUDIO::CHANNEL_SQ1_INDEX
+    PHA_SP
+    LDA #<audio::decoder_0
+    PHA_SP
+    LDA #>audio::decoder_0
+    PHA_SP
+    JSR Audio::InitializeDecoder
+
+    LDA #$00 ;; Prepare return value
+    PHA_SP
+    ;; Initial tick always succeeds
+    JSR Audio::DecodeStream
+    .repeat 17
+      JSR Audio::DecodeStream
+    .endrepeat
+    ;; Should not be enough to advance the stream to the finish
+    LDA #$00 ;; Indicates not finished
+    STA TEST_EXPECTED
+    PLA_SP ;; Pull return val
+    STA TEST_ACTUAL
+
+    SHOW
+    INC_TEST_NO
+
+    ;; One more should finish the stream
+    LDA #%01111111 ;; Clean high bit for the return val
+    PHA_SP
+    JSR Audio::DecodeStream
+    LDA #$FF ;; High bit set indicates stream finished
+    STA TEST_EXPECTED
+    PLA_SP ;; Pull return val
+    STA TEST_ACTUAL
+
+    SHOW
+    INC_TEST_NO
+
+    ;; Every future decode step now just loops forever on finish
+    LDA #$00 ;; Clean return val
+    PHA_SP
+    .repeat 10
+      JSR Audio::DecodeStream
+    .endrepeat
+    PLA_SP
+
+    LDA #%00110011 ;; Clean high bit for the return val
+    PHA_SP
+    JSR Audio::DecodeStream
+    LDA #%10110011 ;; Expect high bit now set after decode step
+    STA TEST_EXPECTED
+    PLA_SP ;; Pull return val
+    STA TEST_ACTUAL
+
+    SHOW
+
+    PLN_SP 5
+    RTS
+.endproc
+
+.proc Test2DecodeStream
+  JMP test
+  audio_stream:
+    .byte %00001111 ;; All channels
+    .byte %00000101 ;; Speed 5 aka 24 ticks per beat, 150bpm
+    ;; .repeat n .byte envelopes?
+    ;; .repeat n .byte frames?
+
+    .addr stream_ch0
+    .addr stream_ch1
+    .addr stream_ch1
+    .addr stream_ch1
+
+  stream_ch0:
+    .byte $0D ;; Bb octave 1
+    .byte AUDIO::OP_CODES::SILENCE
+    .byte $1B ;; C octave 2
+  stream_ch1:
+    .byte $FF
+
+  test:
+    LDA #<audio_stream
+    PHA_SP
+    LDA #>audio_stream
+    PHA_SP
+    LDA #AUDIO::CHANNEL_SQ1_INDEX
+    PHA_SP
+    LDA #<audio::decoder_0
+    PHA_SP
+    LDA #>audio::decoder_0
+    PHA_SP
+    JSR Audio::InitializeDecoder
+
+    LDA #$00 ;; Prepare return value, ignore for this test
+    PHA_SP
+    ;; Initial tick always succeeds
+    JSR Audio::DecodeStream
+    .repeat 5
+      JSR Audio::DecodeStream
+    .endrepeat
+
+    ;; Should not be enough to advance the stream to silence
+    LDA #%10111111 ;; Expect volume to stay high
+    STA TEST_EXPECTED
+    LDA audio::decoder_0 + AUDIO::Decoder::registers + AUDIO::Registers::env
+    STA TEST_ACTUAL
+
+    SHOW
+    INC_TEST_NO
+
+    ;; One more should read the silence note and quiet the stream
+    JSR Audio::DecodeStream
+    LDA #%10110000 ;; Expect volume to be muted
+    STA TEST_EXPECTED
+    LDA audio::decoder_0 + AUDIO::Decoder::registers + AUDIO::Registers::env
+    STA TEST_ACTUAL
+
+    SHOW
+    INC_TEST_NO
+
+    ;; Next note unmutes again
+    .repeat 6
+      JSR Audio::DecodeStream
+    .endrepeat
+    LDA #%10111111 ;; Expect volume to be high again
+    STA TEST_EXPECTED
+    LDA audio::decoder_0 + AUDIO::Decoder::registers + AUDIO::Registers::env
+    STA TEST_ACTUAL
+
+    SHOW
+
+    PLN_SP 6
     RTS
 .endproc
 
@@ -801,5 +980,7 @@
     TEST Test1PrepareChannelBuffer
     TEST Test2PrepareChannelBuffer
     TEST Test0DecodeStream
+    TEST Test1DecodeStream
+    TEST Test2DecodeStream
     RTS
 .endproc
