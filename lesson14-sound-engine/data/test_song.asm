@@ -21,9 +21,9 @@ test_song_2:
     ;; .repeat n .byte patterns?
     ;; .repeat n .byte frames?
 
-    .addr test_song_stop ;; ch0
+    .addr test_song_2_all_stream ;; ch0
     .addr test_song_stop ;; ch1
-    .addr test_song_stop ;; ch2
+    .addr test_song_2_all_stream ;; ch2
     .addr test_song_stop ;; ch3
 
 test_song_3:
@@ -65,6 +65,11 @@ test_song_sq2_stream:
   .byte AUDIO::OP_CODES::SILENCE, AUDIO::OP_CODES::SILENCE, AUDIO::OP_CODES::SILENCE, AUDIO::OP_CODES::SILENCE
   .byte AUDIO::OP_CODES::SILENCE, AUDIO::OP_CODES::SILENCE, AUDIO::OP_CODES::SILENCE, AUDIO::OP_CODES::SILENCE
   .byte AUDIO::OP_CODES::SILENCE, AUDIO::OP_CODES::SILENCE, AUDIO::OP_CODES::SILENCE, AUDIO::OP_CODES::SILENCE
+  .byte AUDIO::OP_CODES::STOP
+
+test_song_2_all_stream:
+  .byte $27, $33, $3F, $4B
+  .byte $3F, $33, $27, $1B
   .byte AUDIO::OP_CODES::STOP
 
 test_song_stop:
