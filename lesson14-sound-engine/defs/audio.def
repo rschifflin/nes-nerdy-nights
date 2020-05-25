@@ -9,6 +9,8 @@
   CHANNEL_TRI_INDEX = $02
   CHANNEL_NOISE_INDEX = $03
 
+  NOTE_HI_CACHE_BUST = $FF
+
   APU_REGISTER_LIST = $4000
 
   .struct Registers

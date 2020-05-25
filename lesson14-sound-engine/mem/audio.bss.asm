@@ -22,7 +22,7 @@ decoders:
   decoder_B:        .tag AUDIO::Decoder
 
   ;; Buffered to not write unless register changes
-  buffer_ch_write_list:
+  buffer_ch_cache_list:
     sq1_last:   .tag AUDIO::Registers
     sq2_last:   .tag AUDIO::Registers
     tri_last:   .tag AUDIO::Registers

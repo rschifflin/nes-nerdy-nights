@@ -32,67 +32,67 @@
       ;; SQ1 has normal env and special case sweep
       LDX #$00
       LDA #APU_ENV_SILENCE
-      STA audio::buffer_ch_write_list,X
+      STA audio::buffer_ch_cache_list,X
       STA AUDIO::APU_REGISTER_LIST,X
       INX
       LDA #%00001000 ;; needed to hear low notes
-      STA audio::buffer_ch_write_list,X
+      STA audio::buffer_ch_cache_list,X
       STA AUDIO::APU_REGISTER_LIST,X
       INX
       LDA #%00000000
-      STA audio::buffer_ch_write_list,X
+      STA audio::buffer_ch_cache_list,X
       STA AUDIO::APU_REGISTER_LIST,X
       INX
-      STA audio::buffer_ch_write_list,X
+      STA audio::buffer_ch_cache_list,X
       STA AUDIO::APU_REGISTER_LIST,X
       INX
 
       ;; SQ2 has normal env and special case sweep
       LDA #APU_ENV_SILENCE
-      STA audio::buffer_ch_write_list,X
+      STA audio::buffer_ch_cache_list,X
       STA AUDIO::APU_REGISTER_LIST,X
       INX
       LDA #%00001000 ;; needed to hear low notes
-      STA audio::buffer_ch_write_list,X
+      STA audio::buffer_ch_cache_list,X
       STA AUDIO::APU_REGISTER_LIST,X
       INX
       LDA #%00000000
-      STA audio::buffer_ch_write_list,X
+      STA audio::buffer_ch_cache_list,X
       STA AUDIO::APU_REGISTER_LIST,X
       INX
-      STA audio::buffer_ch_write_list,X
+      STA audio::buffer_ch_cache_list,X
       STA AUDIO::APU_REGISTER_LIST,X
       INX
 
       ;; TRI has tri env and no sweep
       LDA #APU_TRI_SILENCE
-      STA audio::buffer_ch_write_list,X
+      STA audio::buffer_ch_cache_list,X
       STA AUDIO::APU_REGISTER_LIST,X
       INX
       LDA #%00000000
-      STA audio::buffer_ch_write_list,X
+      STA audio::buffer_ch_cache_list,X
       STA AUDIO::APU_REGISTER_LIST,X
       INX
-      STA audio::buffer_ch_write_list,X
+      STA audio::buffer_ch_cache_list,X
       STA AUDIO::APU_REGISTER_LIST,X
       INX
-      STA audio::buffer_ch_write_list,X
+      STA audio::buffer_ch_cache_list,X
       STA AUDIO::APU_REGISTER_LIST,X
       INX
 
       ;; NOISE has normal env but no sweep
       LDA #APU_ENV_SILENCE
-      STA audio::buffer_ch_write_list,X
+      STA audio::buffer_ch_cache_list,X
       STA AUDIO::APU_REGISTER_LIST,X
       INX
       LDA #%00000000
-      STA audio::buffer_ch_write_list,X
+      STA audio::buffer_ch_cache_list,X
       STA AUDIO::APU_REGISTER_LIST,X
       INX
-      STA audio::buffer_ch_write_list,X
+      STA audio::buffer_ch_cache_list,X
       STA AUDIO::APU_REGISTER_LIST,X
       INX
-      STA audio::buffer_ch_write_list,X
+      STA audio::buffer_ch_cache_list,X
       STA AUDIO::APU_REGISTER_LIST,X
 
       ;; Set decoders for tracks
@@ -557,12 +557,20 @@
       BNE loop
 
       LDA r0
+      LDX $00
+      STX r0
       CMP audio::apu_flags_buffer
-      BEQ @after_write
-      STA audio::apu_flags_buffer
-      STA APUFLAGS
-    @after_write:
-      JSR PlayChannels
+      BEQ @after_cache_write
+      ;; Find the rising edge flag bits here to bust their cache
+      TAX
+      STA r0
+      EOR audio::apu_flags_buffer
+      AND r0
+      STA r0
+      STX audio::apu_flags_buffer
+      STX APUFLAGS
+    @after_cache_write:
+      JSR PlayChannels ;; r0 contains the apu flags that are newly-rising, or 0 if the cache is unchanged
     done:
       RTS
   .endproc
@@ -570,8 +578,28 @@
   ;;;; PlayChannels
   ;; Copies the decoder registers into a write cache, and writes to the APU on change
   ;; Whenever we transition from volume zero to nonzero, we must 'reload' the length counter by also writing note_hi again.
-  ;; Whenever we write to a square channel's note_hi, we must also write its sister channel's note_hi
+  ;; Whenever we transition from disabled to enabled, we also reload the length counter
+  ;; Expects r0 to contain apu flags that have shifted from disabled->enabled
   .proc PlayChannels
+      LDX #$00
+      LDA r0
+      BEQ loop ;; If none are rising, no checks needed
+    bust_rising_cache:
+      AND #$01
+      BEQ @skip
+      LDA #AUDIO::NOTE_HI_CACHE_BUST ;; Chosen to never be a real value for note_hi
+      STA audio::buffer_ch_cache_list + AUDIO::Registers::note_hi,X
+    @skip:
+      LSR r0
+      BEQ @done ;; If no more are rising, head to loop
+      LDA r0
+      .repeat .SIZEOF(AUDIO::Registers)
+      INX
+      .endrepeat
+      CPX #$10
+      BNE bust_rising_cache
+    @done:
+
       LDX #$00 ;; Channel index, 0 = sq1, 1 = sq2, 2 = tri, 3 = noise
     loop:
       STX r0
@@ -594,7 +622,7 @@
       LDY r0 ;; Channel index
       LDA Audio::channel_volume_mask_list, Y
       STA r1
-      LDA audio::buffer_ch_write_list,X ;; Last write for env for channel
+      LDA audio::buffer_ch_cache_list,X ;; Last write for env for channel
       AND r1 ;; Mask against volume
       BNE init_inner_loop
       ;; When last write was 0...
@@ -605,16 +633,16 @@
       BEQ init_inner_loop
       ;; And next write is not zero...
     @bust_note_hi_cache:
-      LDA #$FF ;; Never going to be a real value for note_hi, as we always 0 out the high bit length counters
-      STA audio::buffer_ch_write_list + AUDIO::Registers::note_hi,X
+      LDA #AUDIO::NOTE_HI_CACHE_BUST ;; Chosen to never be a real value for note_hi
+      STA audio::buffer_ch_cache_list + AUDIO::Registers::note_hi,X
     init_inner_loop:
       LDY #$00 ;; Index into register list
     inner_loop:
       ;; Only write if we differ from the cache
       LDA (PLO),Y
-      CMP audio::buffer_ch_write_list, X
+      CMP audio::buffer_ch_cache_list, X
       BEQ @ignore
-      STA audio::buffer_ch_write_list, X
+      STA audio::buffer_ch_cache_list, X
       STA AUDIO::APU_REGISTER_LIST, X
     @ignore:
       INX
