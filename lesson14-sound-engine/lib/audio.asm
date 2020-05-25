@@ -4,7 +4,9 @@
     .addr audio::track_bgm ;; Lowest priority
     .addr audio::track_sfx0
     .addr audio::track_sfx1 ;; Highest priority
-
+  decoder_table:
+    .addr audio::decoder_0,audio::decoder_1,audio::decoder_2,audio::decoder_3,audio::decoder_4,audio::decoder_5
+    .addr audio::decoder_6,audio::decoder_7,audio::decoder_8,audio::decoder_9,audio::decoder_A,audio::decoder_B
   channel_silence_list:
     .byte APU_ENV_SILENCE
     .byte APU_ENV_SILENCE
@@ -90,59 +92,31 @@
       STA AUDIO::APU_REGISTER_LIST,X
 
       ;; Set decoders for tracks
-      LDA #<audio::decoders
-      STA PLO
-      LDA #>audio::decoders
-      STA PHI
-
+      LDY #$00
       LDX #$00
     loop_bgm:
-      LDA PLO
+      LDA decoder_table,Y
       STA audio::track_bgm + AUDIO::Track::sq1, X
-      CLC
-      ADC #.SIZEOF(AUDIO::Decoder)
-      STA PLO
-
-      LDA PHI
-      STA audio::track_bgm + AUDIO::Track::sq1 + 1, X
-      ADC #$00
-      STA PHI
       INX
-      INX
+      INY
       CPX #$08
       BNE loop_bgm
 
       LDX #$00
     loop_sfx0:
-      LDA PLO
+      LDA decoder_table,Y
       STA audio::track_sfx0 + AUDIO::Track::sq1, X
-      CLC
-      ADC #.SIZEOF(AUDIO::Decoder)
-      STA PLO
-
-      LDA PHI
-      STA audio::track_sfx0 + AUDIO::Track::sq1 + 1, X
-      ADC #$00
-      STA PHI
       INX
-      INX
+      INY
       CPX #$08
       BNE loop_sfx0
 
       LDX #$00
     loop_sfx1:
-      LDA PLO
+      LDA decoder_table,Y
       STA audio::track_sfx1 + AUDIO::Track::sq1, X
-      CLC
-      ADC #.SIZEOF(AUDIO::Decoder)
-      STA PLO
-
-      LDA PHI
-      STA audio::track_sfx1 + AUDIO::Track::sq1 + 1, X
-      ADC #$00
-      STA PHI
       INX
-      INX
+      INY
       CPX #$08
       BNE loop_sfx1
 
@@ -179,7 +153,6 @@
       PHA_SP
       JSR PlayTrack
       PLN_SP 2
-
       RTS
   .endproc
 
