@@ -1,7 +1,5 @@
 ;; Sound engine API
 .scope Audio
-  .linecont +
-
   track_prio_list:
     .addr audio::track_bgm ;; Lowest priority
     .addr audio::track_sfx0
@@ -12,18 +10,26 @@
     .byte APU_ENV_SILENCE
     .byte APU_TRI_SILENCE
     .byte APU_ENV_SILENCE
+  channel_volume_mask_list:
+    .byte %00001111
+    .byte %00001111
+    .byte %01111111
+    .byte %00001111
 
   .proc Init
       ;; Initialize audio engine
+      ;; All channels initially disabled
+      LDA #$00
+      STA audio::apu_flags_buffer
 
       ;; Set write cache to initial write values
-      ;; SQ1 has normal env and forced sweep
+      ;; SQ1 has normal env and special case sweep
       LDX #$00
-      LDA APU_ENV_SILENCE
+      LDA #APU_ENV_SILENCE
       STA audio::buffer_ch_write_list,X
       STA AUDIO::APU_REGISTER_LIST,X
       INX
-      LDA #%00001000 ;; needed for sweep for some reason
+      LDA #%00001000 ;; needed to hear low notes
       STA audio::buffer_ch_write_list,X
       STA AUDIO::APU_REGISTER_LIST,X
       INX
@@ -35,12 +41,12 @@
       STA AUDIO::APU_REGISTER_LIST,X
       INX
 
-      ;; SQ2 has normal env and forced sweep
-      LDA APU_ENV_SILENCE
+      ;; SQ2 has normal env and special case sweep
+      LDA #APU_ENV_SILENCE
       STA audio::buffer_ch_write_list,X
       STA AUDIO::APU_REGISTER_LIST,X
       INX
-      LDA #%00001000 ;; needed for sweep for some reason
+      LDA #%00001000 ;; needed to hear low notes
       STA audio::buffer_ch_write_list,X
       STA AUDIO::APU_REGISTER_LIST,X
       INX
@@ -53,7 +59,7 @@
       INX
 
       ;; TRI has tri env and no sweep
-      LDA APU_TRI_SILENCE
+      LDA #APU_TRI_SILENCE
       STA audio::buffer_ch_write_list,X
       STA AUDIO::APU_REGISTER_LIST,X
       INX
@@ -69,7 +75,7 @@
       INX
 
       ;; NOISE has normal env but no sweep
-      LDA APU_ENV_SILENCE
+      LDA #APU_ENV_SILENCE
       STA audio::buffer_ch_write_list,X
       STA AUDIO::APU_REGISTER_LIST,X
       INX
@@ -143,29 +149,12 @@
       ;; Initially disabled
       LDA #$FF
       STA audio::disable
-
       RTS
   .endproc
 
   .proc Enable
-      LDA #APU_FLAGS_SQ1_ENABLE  | \
-           APU_FLAGS_SQ2_ENABLE | \
-           APU_FLAGS_TRI_ENABLE | \
-           APU_FLAGS_NOISE_ENABLE
-      STA APUFLAGS
-
-      LDA #APU_ENV_SILENCE
-      STA APU_SQ1_ENV
-      STA APU_SQ2_ENV
-      STA APU_NOISE_ENV
-
-      LDA #APU_TRI_SILENCE
-      STA APU_TRI_CTRL
-
       LDA #$00
       STA audio::disable
-      LDA #$01
-      STA audio::force_write
       RTS
   .endproc
 
@@ -317,7 +306,7 @@
       BNE loop
 
       PLN_SP 2 ;; Finish using stack
-      JMP Enable
+      RTS
   .endproc
 
   ;;;; InitializeDecoder
@@ -554,74 +543,104 @@
       LDX #AUDIO::CHANNEL_SQ1
       STX r0
       JSR TrackForChannel ;; P contains a pointer for the track to play, r0 contains channel flag
+      LDA PLO
+      ORA PHI
+      PHA ;; Preserve for channel enable/disable checking later
       JSR PrepareChannelBuffer
 
       LDX #AUDIO::CHANNEL_SQ2
       STX r0
       JSR TrackForChannel ;; P contains a pointer for the track to play, r0 contains channel flag
+      LDA PLO
+      ORA PHI
+      PHA ;; Preserve for channel enable/disable checking later
       JSR PrepareChannelBuffer
 
       LDX #AUDIO::CHANNEL_TRI
       STX r0
       JSR TrackForChannel ;; P contains a pointer for the track to play, r0 contains channel flag
+      LDA PLO
+      ORA PHI
+      PHA ;; Preserve for channel enable/disable checking later
       JSR PrepareChannelBuffer
 
       LDX #AUDIO::CHANNEL_NOISE
       STX r0
       JSR TrackForChannel ;; P contains a pointer for the track to play, r0 contains channel flag
+      LDA PLO
+      ORA PHI
+      PHA ;; Preserve for channel enable/disable checking later
       JSR PrepareChannelBuffer
 
-      ;; Write to APU
+      LDA #$00
+      STA r0 ;; r0 will hold our apu flags
+      LDX #$04
+      CLC
+    loop:
+      PLA
+      ADC #$FF ;; Carry is unset if A is 0, set if A is nonzero
+      ROL r0 ;; rotate the carry into r0, and clear the carry
+      DEX
+      BNE loop
+
+      LDA r0
+      CMP audio::apu_flags_buffer
+      BEQ @after_write
+      STA audio::apu_flags_buffer
+      STA APUFLAGS
+    @after_write:
       JSR PlayChannels
     done:
       RTS
   .endproc
 
+  ;;;; PlayChannels
+  ;; Copies the decoder registers into a write cache, and writes to the APU on change
+  ;; Whenever we transition from volume zero to nonzero, we must 'reload' the length counter by also writing note_hi again.
+  ;; Whenever we write to a square channel's note_hi, we must also write its sister channel's note_hi
   .proc PlayChannels
-      LDX #$00 ;; Index into channel buffer address list, incremented by 2
+      LDX #$00 ;; Channel index, 0 = sq1, 1 = sq2, 2 = tri, 3 = noise
     loop:
+      STX r0
+
+      TXA
+      ASL A ;; Addr list is word-sized, so double the channel index to get the channel addr
+      TAX
+
       LDA audio::buffer_ch_addr_list,X
       STA PLO
       LDA audio::buffer_ch_addr_list+1,X
       STA PHI
+      ORA PLO
+      BEQ next ;; channel is not active when P is null
 
       TXA
-      STA r0 ;; Preserve addr list counter for after the inner loop
       ASL A ;; Register list entries are 4 bytes, twice as big as addr list entries.
-            ;; So we multiply our addr list offset by 2
       TAX
 
-      LDA PLO
-      ORA PHI
-      BNE non_null_case ;; silence channel when P is null
-    null_case:
-      ;; Don't care about force_write here
-      LDA r0 ;; Silence list entries are 1 byte, twice as small as addr list entries.
-      LSR A  ;; So we divide by 2
-      TAY
-      LDA channel_silence_list,Y
-      CMP audio::buffer_ch_write_list, X
-      BEQ @ignore
-      STA audio::buffer_ch_write_list, X
-      STA AUDIO::APU_REGISTER_LIST, X
-    @ignore:
-      JMP next
-
-    non_null_case:
+      LDY r0 ;; Channel index
+      LDA Audio::channel_volume_mask_list, Y
+      STA r1
+      LDA audio::buffer_ch_write_list,X ;; Last write for env for channel
+      AND r1 ;; Mask against volume
+      BNE init_inner_loop
+      ;; When last write was 0...
+      LDY #AUDIO::Registers::env
+      LDA (PLO),Y
+      LDY #$FF
+      AND r1 ;; Mask against volume
+      BEQ init_inner_loop
+      ;; And next write is not zero...
+    @bust_note_hi_cache:
+      LDA #$FF ;; Never going to be a real value for note_hi, as we always 0 out the high bit length counters
+      STA audio::buffer_ch_write_list + AUDIO::Registers::note_hi,X
+    init_inner_loop:
       LDY #$00 ;; Index into register list
     inner_loop:
-      ;; If force_write is set, always write
-      LDA audio::force_write
-      BNE @force_write
-
-      ;; Else, only write if we differ from the cache
+      ;; Only write if we differ from the cache
       LDA (PLO),Y
       CMP audio::buffer_ch_write_list, X
       BEQ @ignore
-      JMP @write
-    @force_write:
-      LDA (PLO),Y
-    @write:
       STA audio::buffer_ch_write_list, X
       STA AUDIO::APU_REGISTER_LIST, X
     @ignore:
@@ -632,15 +651,12 @@
 
     next:
       LDX r0 ;; Restore addr list counter from outer loop
-      INX    ;; Addr lists are word-sized, so inc by 2
       INX
-      CPX #$08
+      CPX #$04
       BNE loop
+    done:
 
-      LDA #$00
-      STA audio::force_write
       RTS
-
   .endproc
 
   ;; Goes through all track addrs and ticks each track
@@ -785,8 +801,6 @@
   .endproc
 
   .proc Disable
-      LDA #$00
-      STA APUFLAGS
       LDA #$01
       STA audio::disable
       RTS

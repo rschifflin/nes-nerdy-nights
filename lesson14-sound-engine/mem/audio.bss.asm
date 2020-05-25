@@ -1,6 +1,6 @@
 .scope audio
-  disable:    .res 1
-  force_write: .res 1
+  disable:          .res 1
+  apu_flags_buffer: .res 1
 
 tracks:
   track_bgm:        .tag AUDIO::Track
@@ -34,4 +34,5 @@ decoders:
     sq2_addr:   .res 2 ;; -> AUDIO::Registers
     tri_addr:   .res 2 ;; -> AUDIO::Registers
     noise_addr: .res 2 ;; -> AUDIO::Registers
+
 .endscope

@@ -80,13 +80,7 @@ clear_stack:
   JSR InitMemory
 
   JSR Audio::Init
-
-  ;LDA #<test_song_2
-  ;PHA_SP
-  ;LDA #>test_song_2
-  ;PHA_SP
-  ;JSR Audio::PlaySFX0
-  ;PLN_SP 2
+  JSR Audio::Enable
 
   ;; Wait for PPU to vblank. PPU hw finishing warming up
   JSR WaitVblank
@@ -230,6 +224,13 @@ run:
         LDA p1_controller_rising
         AND #CONTROLLER_DOWN
         BEQ no_down
+        LDA #<test_song_3
+        PHA_SP
+        LDA #>test_song_3
+        PHA_SP
+        JSR Audio::PlayBGM
+        PLN_SP 2
+        JMP done
         ;; when down pressed...
       no_down:
 

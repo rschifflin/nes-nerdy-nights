@@ -34,9 +34,7 @@
     .addr audio::decoder_B ;; ptr to decoder
 
     ;; Disable
-    .byte $00
-    ;; Force Write
-    .byte $01
+    .byte $FF
 
   test:
     JSR Audio::Init
@@ -54,11 +52,6 @@
     LDA expected,X
     STA TEST_EXPECTED,X
     LDA audio::disable
-    STA TEST_ACTUAL,X
-    INX
-    LDA expected,X
-    STA TEST_EXPECTED,X
-    LDA audio::force_write
     STA TEST_ACTUAL,X
     INX
 

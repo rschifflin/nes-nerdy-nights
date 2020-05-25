@@ -8,7 +8,7 @@ test_song_1:
     ;; .repeat n .byte frames?
 
     .addr note_c3 ;; ch0
-    .addr note_c3 ;; ch1
+    .addr note_c4 ;; ch1
     .addr note_c3 ;; ch2
     .addr note_c3 ;; ch3
 
