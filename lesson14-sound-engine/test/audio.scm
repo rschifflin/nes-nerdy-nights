@@ -87,3 +87,10 @@
   (description
     "It should set the buffer_ch_addr_list to the null addr"))
 
+;; Test 10
+(asm-test
+  (name
+    "Decode")
+  (description
+    "It should only act on the correct tick based on speed and tempo"))
+

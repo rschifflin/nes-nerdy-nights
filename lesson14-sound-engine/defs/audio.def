@@ -46,7 +46,9 @@
   .struct Decoder
     stream_head  .addr    ;; -> audio start
     registers    .tag Registers
-    spempo       .byte
+    spempo       .byte ;; ssst-tttt , 3 bits of speed and 5 bits of tempo
+    tick_counter .byte ;; Increments 1 every tick
+    tock_counter .byte ;; Increments by n every m ticks, where n is tempo and m is speed
     ;; length counter?
     ;; loop counter?
     ;; channel done?

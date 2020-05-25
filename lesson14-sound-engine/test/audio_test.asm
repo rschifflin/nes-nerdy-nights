@@ -12,30 +12,20 @@
     ;; BGM track:
     .byte $00 ;; Channel mask
     .addr $0000 ;; no audio stream
-    .addr audio::decoder_0 ;; ptr to decoder
-    .addr audio::decoder_1 ;; ptr to decoder
-    .addr audio::decoder_2 ;; ptr to decoder
-    .addr audio::decoder_3 ;; ptr to decoder
+    .addr Audio::bgm_decoder_table ;; ptr to decoders
 
     ;; SFX0 track:
     .byte $00 ;; Channel mask
     .addr $0000 ;; no audio stream
-    .addr audio::decoder_4 ;; ptr to decoder
-    .addr audio::decoder_5 ;; ptr to decoder
-    .addr audio::decoder_6 ;; ptr to decoder
-    .addr audio::decoder_7 ;; ptr to decoder
+    .addr Audio::sfx0_decoder_table ;; ptr to decoders
 
     ;; SFX1 track:
     .byte $00 ;; Channel mask
     .addr $0000 ;; no audio stream
-    .addr audio::decoder_8 ;; ptr to decoder
-    .addr audio::decoder_9 ;; ptr to decoder
-    .addr audio::decoder_A ;; ptr to decoder
-    .addr audio::decoder_B ;; ptr to decoder
+    .addr Audio::sfx1_decoder_table ;; ptr to decoders
 
     ;; Disable
     .byte $FF
-
   test:
     JSR Audio::Init
 
@@ -46,7 +36,7 @@
     LDA audio::track_bgm,X
     STA TEST_ACTUAL,X
     INX
-    CPX #$21
+    CPX #$0F
     BNE loop
 
     LDA expected,X
@@ -90,42 +80,46 @@
     .endrepeat
 
   expected:
-    ;; BGM track (11 bytes):
+    ;; BGM track
     .byte %00001010 ;; Channel mask
     .addr audio_stream ;; ptr to audio stream
-    .addr audio::decoder_0 ;; ptr to decoder
-    .addr audio::decoder_1 ;; ptr to decoder
-    .addr audio::decoder_2 ;; ptr to decoder
-    .addr audio::decoder_3 ;; ptr to decoder
+    .addr Audio::bgm_decoder_table ;; ptr to decoders
 
-    ;; Decoder 0 (6 bytes)
+    ;; Decoder 0
     .addr stream_ch0   ;; stream head
     .byte $30, $08, $00, $00 ;; Default silent registers
     .byte $E0 ;; Placeholder for speed/tempo
-    ;; TODO: .byte length counter
+    .byte $00 ;; Tick counter
+    .byte $00 ;; Tock counter
     ;; TODO: .byte loop counter
     ;; TODO: .byte channel done?
 
-    ;; Decoder 1 (6 bytes)
+    ;; Decoder 1
     .addr stream_ch1   ;; stream head
     .byte $30, $08, $00, $00 ;; Default silent registers
     .byte $E0 ;; Placeholder for speed/tempo
+    .byte $00 ;; Tick counter
+    .byte $00 ;; Tock counter
     ;; TODO: .byte length counter
     ;; TODO: .byte loop counter
     ;; TODO: .byte channel done?
 
-    ;; Decoder 2 (6 bytes)
+    ;; Decoder 2
     .addr stream_ch2   ;; stream head
     .byte $80, $08, $00, $00 ;; Default silent registers (Note, this is a triangle ch)
     .byte $E0 ;; Placeholder for speed/tempo
+    .byte $00 ;; Tick counter
+    .byte $00 ;; Tock counter
     ;; TODO: .byte length counter
     ;; TODO: .byte loop counter
     ;; TODO: .byte channel done?
 
-    ;; Decoder 3 (6 bytes)
+    ;; Decoder 3
     .addr stream_ch3   ;; stream head
     .byte $30, $08, $00, $00 ;; Default silent registers
     .byte $E0 ;; Placeholder for speed/tempo
+    .byte $00 ;; Tick counter
+    .byte $00 ;; Tock counter
     ;; TODO: .byte length counter
     ;; TODO: .byte loop counter
     ;; TODO: .byte channel done?
@@ -136,7 +130,7 @@
     LDA expected,X
     STA TEST_EXPECTED,X
     INX
-    CPX #$23
+    CPX #(.SIZEOF(AUDIO::Track) + (4*.SIZEOF(AUDIO::Decoder)))
     BNE loop_expected
 
     JSR Audio::Init
@@ -155,7 +149,7 @@
       STA TEST_ACTUAL, Y
       INY
       INX
-      CPX #$0B
+      CPX #.SIZEOF(AUDIO::Track)
       BNE bgm
 
       LDX #$00
@@ -164,7 +158,7 @@
       STA TEST_ACTUAL, Y
       INY
       INX
-      CPX #$18
+      CPX #(4 * .SIZEOF(AUDIO::Decoder))
       BNE decoders
   .endscope
 
@@ -203,42 +197,47 @@
     .endrepeat
 
   expected:
-    ;; SFX0 track (11 bytes):
+    ;; SFX0 track
     .byte %00000100 ;; Channel mask
     .addr audio_stream ;; ptr to audio stream
-    .addr audio::decoder_4 ;; ptr to decoder
-    .addr audio::decoder_5 ;; ptr to decoder
-    .addr audio::decoder_6 ;; ptr to decoder
-    .addr audio::decoder_7 ;; ptr to decoder
+    .addr Audio::sfx0_decoder_table ;; ptr to decoder
 
-    ;; Decoder 4 (6 bytes)
+    ;; Decoder 4
     .addr stream_ch0   ;; stream head
     .byte $30, $08, $00, $00 ;; Default silent registers
     .byte $FA ;; Placeholder for speed/tempo
+    .byte $00 ;; Tick counter
+    .byte $00 ;; Tock counter
     ;; TODO: .byte length counter
     ;; TODO: .byte loop counter
     ;; TODO: .byte channel done?
 
-    ;; Decoder 5 (6 bytes)
+    ;; Decoder 5
     .addr stream_ch1   ;; stream head
     .byte $30, $08, $00, $00 ;; Default silent registers
     .byte $FA ;; Placeholder for speed/tempo
+    .byte $00 ;; Tick counter
+    .byte $00 ;; Tock counter
     ;; TODO: .byte length counter
     ;; TODO: .byte loop counter
     ;; TODO: .byte channel done?
 
-    ;; Decoder 6 (6 bytes)
+    ;; Decoder 6
     .addr stream_ch2   ;; stream head
     .byte $80, $08, $00, $00 ;; Default silent registers (Note, this is a triangle ch)
     .byte $FA ;; Placeholder for speed/tempo
+    .byte $00 ;; Tick counter
+    .byte $00 ;; Tock counter
     ;; TODO: .byte length counter
     ;; TODO: .byte loop counter
     ;; TODO: .byte channel done?
 
-    ;; Decoder 7 (6 bytes)
+    ;; Decoder 7
     .addr stream_ch3   ;; stream head
     .byte $30, $08, $00, $00 ;; Default silent registers
     .byte $FA ;; Placeholder for speed/tempo
+    .byte $00 ;; Tick counter
+    .byte $00 ;; Tock counter
     ;; TODO: .byte length counter
     ;; TODO: .byte loop counter
     ;; TODO: .byte channel done?
@@ -249,7 +248,7 @@
     LDA expected,X
     STA TEST_EXPECTED,X
     INX
-    CPX #$23
+    CPX #(.SIZEOF(AUDIO::Track) + (4*.SIZEOF(AUDIO::Decoder)))
     BNE loop_expected
 
     JSR Audio::Init
@@ -268,7 +267,7 @@
       STA TEST_ACTUAL, Y
       INY
       INX
-      CPX #$0B
+      CPX #.SIZEOF(AUDIO::Track)
       BNE sfx0
 
       LDX #$00
@@ -277,7 +276,7 @@
       STA TEST_ACTUAL, Y
       INY
       INX
-      CPX #$18
+      CPX #(4*.SIZEOF(AUDIO::Decoder))
       BNE decoders
   .endscope
 
@@ -319,39 +318,44 @@
     ;; SFX1 track (11 bytes):
     .byte %00001111 ;; Channel mask
     .addr audio_stream ;; ptr to audio stream
-    .addr audio::decoder_8 ;; ptr to decoder
-    .addr audio::decoder_9 ;; ptr to decoder
-    .addr audio::decoder_A ;; ptr to decoder
-    .addr audio::decoder_B ;; ptr to decoder
+    .addr Audio::sfx1_decoder_table ;; ptr to decoder
 
-    ;; Decoder 8 (6 bytes)
+    ;; Decoder 8
     .addr stream_ch0   ;; stream head
     .byte $30, $08, $00, $00 ;; Default silent registers
     .byte $14 ;; Placeholder for speed/tempo
+    .byte $00 ;; Tick counter
+    .byte $00 ;; Tock counter
     ;; TODO: .byte length counter
     ;; TODO: .byte loop counter
     ;; TODO: .byte channel done?
 
-    ;; Decoder 9 (6 bytes)
+    ;; Decoder 9
     .addr stream_ch1   ;; stream head
     .byte $30, $08, $00, $00 ;; Default silent registers
     .byte $14 ;; Placeholder for speed/tempo
+    .byte $00 ;; Tick counter
+    .byte $00 ;; Tock counter
     ;; TODO: .byte length counter
     ;; TODO: .byte loop counter
     ;; TODO: .byte channel done?
 
-    ;; Decoder A (6 bytes)
+    ;; Decoder A
     .addr stream_ch2   ;; stream head
     .byte $80, $08, $00, $00 ;; Default silent registers (Note, this is a triangle ch)
     .byte $14 ;; Placeholder for speed/tempo
+    .byte $00 ;; Tick counter
+    .byte $00 ;; Tock counter
     ;; TODO: .byte length counter
     ;; TODO: .byte loop counter
     ;; TODO: .byte channel done?
 
-    ;; Decoder B (6 bytes)
+    ;; Decoder B
     .addr stream_ch3   ;; stream head
     .byte $30, $08, $00, $00 ;; Default silent registers
     .byte $14 ;; Placeholder for speed/tempo
+    .byte $00 ;; Tick counter
+    .byte $00 ;; Tock counter
     ;; TODO: .byte length counter
     ;; TODO: .byte loop counter
     ;; TODO: .byte channel done?
@@ -362,7 +366,7 @@
     LDA expected,X
     STA TEST_EXPECTED,X
     INX
-    CPX #$23
+    CPX #(.SIZEOF(AUDIO::Track) + (4 * .SIZEOF(AUDIO::Decoder)))
     BNE loop_expected
 
     JSR Audio::Init
@@ -381,7 +385,7 @@
       STA TEST_ACTUAL, Y
       INY
       INX
-      CPX #$0B
+      CPX #.SIZEOF(AUDIO::Track)
       BNE sfx1
 
       LDX #$00
@@ -390,7 +394,7 @@
       STA TEST_ACTUAL, Y
       INY
       INX
-      CPX #$18
+      CPX #(4 * .SIZEOF(AUDIO::Decoder))
       BNE decoders
   .endscope
 
@@ -575,7 +579,7 @@
 
     LDA audio::buffer_ch_addr_list
     STA TEST_ACTUAL
-    LDA audio::buffer_ch_addr_list+1,X
+    LDA audio::buffer_ch_addr_list+1
     STA TEST_ACTUAL+1
 
     SHOW
@@ -730,6 +734,28 @@
     RTS
 .endproc
 
+.proc Test0DecodeStream
+    LDA #$00
+    STA TEST_EXPECTED
+    STA TEST_EXPECTED+1
+
+    LDA #AUDIO::CHANNEL_SQ1
+    STA r0
+    LDA #$00
+    STA PLO
+    LDA #$00
+    STA PHI
+    JSR Audio::PrepareChannelBuffer
+
+    LDA audio::buffer_ch_addr_list
+    STA TEST_ACTUAL
+    LDA audio::buffer_ch_addr_list+1,X
+    STA TEST_ACTUAL+1
+
+    SHOW
+    RTS
+.endproc
+
 
 .proc RunTests
     TEST TestInit
@@ -742,5 +768,6 @@
     TEST Test0PrepareChannelBuffer
     TEST Test1PrepareChannelBuffer
     TEST Test2PrepareChannelBuffer
+    TEST Test0DecodeStream
     RTS
 .endproc
