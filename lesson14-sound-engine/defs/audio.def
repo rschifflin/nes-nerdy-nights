@@ -23,10 +23,7 @@
   .struct Track
     channels_active .byte ;; channel mask
     audio_header    .addr ;; -> Stream
-    sq1             .addr ;; -> Decoder
-    sq2             .addr ;; -> Decoder
-    tri             .addr ;; -> Decoder
-    noise           .addr ;; -> Decoder
+    decoders        .addr ;; -> Decoder addr list
   .endstruct
 
   .struct Stream

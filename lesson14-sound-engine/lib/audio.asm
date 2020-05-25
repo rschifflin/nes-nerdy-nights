@@ -5,8 +5,12 @@
     .addr audio::track_sfx0
     .addr audio::track_sfx1 ;; Highest priority
   decoder_table:
-    .addr audio::decoder_0,audio::decoder_1,audio::decoder_2,audio::decoder_3,audio::decoder_4,audio::decoder_5
-    .addr audio::decoder_6,audio::decoder_7,audio::decoder_8,audio::decoder_9,audio::decoder_A,audio::decoder_B
+  bgm_decoder_table:
+    .addr audio::decoder_0,audio::decoder_1,audio::decoder_2,audio::decoder_3
+  sfx0_decoder_table:
+    .addr audio::decoder_4,audio::decoder_5,audio::decoder_6,audio::decoder_7
+  sfx1_decoder_table:
+    .addr audio::decoder_8,audio::decoder_9,audio::decoder_A,audio::decoder_B
   channel_silence_list:
     .byte APU_ENV_SILENCE
     .byte APU_ENV_SILENCE
@@ -92,33 +96,20 @@
       STA AUDIO::APU_REGISTER_LIST,X
 
       ;; Set decoders for tracks
-      LDY #$00
-      LDX #$00
-    loop_bgm:
-      LDA decoder_table,Y
-      STA audio::track_bgm + AUDIO::Track::sq1, X
-      INX
-      INY
-      CPX #$08
-      BNE loop_bgm
+      LDA #<bgm_decoder_table
+      STA audio::track_bgm + AUDIO::Track::decoders
+      LDA #>bgm_decoder_table
+      STA audio::track_bgm + AUDIO::Track::decoders+1
 
-      LDX #$00
-    loop_sfx0:
-      LDA decoder_table,Y
-      STA audio::track_sfx0 + AUDIO::Track::sq1, X
-      INX
-      INY
-      CPX #$08
-      BNE loop_sfx0
+      LDA #<sfx0_decoder_table
+      STA audio::track_sfx0 + AUDIO::Track::decoders
+      LDA #>sfx0_decoder_table
+      STA audio::track_sfx0 + AUDIO::Track::decoders+1
 
-      LDX #$00
-    loop_sfx1:
-      LDA decoder_table,Y
-      STA audio::track_sfx1 + AUDIO::Track::sq1, X
-      INX
-      INY
-      CPX #$08
-      BNE loop_sfx1
+      LDA #<sfx1_decoder_table
+      STA audio::track_sfx1 + AUDIO::Track::decoders
+      LDA #>sfx1_decoder_table
+      STA audio::track_sfx1 + AUDIO::Track::decoders+1
 
       ;; Initially disabled
       LDA #$FF
@@ -129,11 +120,6 @@
   .proc Enable
       LDA #$00
       STA audio::disable
-      RTS
-  .endproc
-
-  .proc LoadAudio
-      ;; Takes a memory address in P holding an encoded audio stream and adds it to the audio list
       RTS
   .endproc
 
@@ -230,12 +216,20 @@
       LDA r1
       PHA_SP ;; Audio addr hi
 
+      LDY #$00
       LDA PLO
       CLC
-      ADC #AUDIO::Track::sq1
+      ADC #AUDIO::Track::decoders
       STA PLO
       LDA PHI
       ADC #$00
+      STA PHI
+
+      LDA (PLO),Y
+      TAX
+      INY
+      LDA (PLO),Y
+      STX PLO
       STA PHI
 
       LDX #$00
@@ -243,7 +237,7 @@
       TXA
       PHA ;; Preserve X loop counter
 
-      PHA_SP ;; Push x for ch offset
+      PHA_SP ;; Push x for channel offset
       LDY #$00
       LDA (PLO),Y
       PHA_SP ;; lo-> Decoder
@@ -253,8 +247,8 @@
 
       ;; Protect PLO/PHI from clobber
       LDA PHI
-      PHA ;; hi-> Track.chan
-      LDA PLO ;; lo-> Track.chan
+      PHA ;; hi-> Track.decoders
+      LDA PLO ;; lo-> Track.decoders
       PHA
 
       ;; Arg0,1 = Audio Addr
@@ -264,11 +258,11 @@
       PLN_SP 3 ;; Preserve Audio addr still
 
       ;; Restore PLO/PHI from clobber
-      PLA ;; lo-> Track.chan
+      PLA ;; lo-> Track.decoders
       CLC
       ADC #$02
       STA PLO
-      PLA ;; hi-> Track.chan
+      PLA ;; hi-> Track.decoders
       ADC #$00
       STA PHI
 
@@ -484,24 +478,30 @@
       BEQ write
 
       ;; Otherwise...
-      LDA #AUDIO::Track::sq1
-      CLC
-      ADC r0 ;; Offset of decoder address
-      TAY
+      LDY #AUDIO::Track::decoders
+      LDA (PLO),Y
+      TAX
+      INY
+      LDA (PLO),Y
+      STX PLO
+      STA PHI
+      ;; PLO/PHI now holds the decoder addr list
+
+      LDY r0 ;; Offset of decoder address
       LDA (PLO),Y ;; Load decoder lo
       CLC
       ADC #AUDIO::Decoder::registers ;; A now holds decoderLo + offset to registers
-      PHA ;; Can't store yet, still using PLO/PHI to point to decoder data
+      TAX
       INY
       LDA (PLO),Y ;; Load decoder hi
       ADC #$00 ;; Include carry from lo+offset if needed
-      STA PHI
-      PLA ;; Registers lo
+      STA PHI ;; Registers hi
+      TXA ;; Registers lo
     write:
-      LDX r0
-      STA audio::buffer_ch_addr_list,X
-      LDA PHI ;; Registers hi
-      STA audio::buffer_ch_addr_list+1,X
+      LDY r0
+      STA audio::buffer_ch_addr_list,Y
+      LDA PHI
+      STA audio::buffer_ch_addr_list+1,Y
       RTS
   .endproc
 
@@ -657,6 +657,14 @@
   ;; Decodes the next note for all active channels in the track pointed to by P
   ;; Expects P to point to a track
   .proc TickTrack
+      JMP start
+    loop_args:
+        ;;    X = channel flag      X+1 = decoder offset
+        .byte AUDIO::CHANNEL_SQ1,   2*AUDIO::CHANNEL_SQ1_INDEX
+        .byte AUDIO::CHANNEL_SQ2,   2*AUDIO::CHANNEL_SQ2_INDEX
+        .byte AUDIO::CHANNEL_TRI,   2*AUDIO::CHANNEL_TRI_INDEX
+        .byte AUDIO::CHANNEL_NOISE, 2*AUDIO::CHANNEL_NOISE_INDEX
+    start:
       LDY #AUDIO::Track::channels_active
       LDA (PLO),Y
       BEQ done ;; No channels active
@@ -669,14 +677,14 @@
       LDA (PLO),Y
       PHA_SP ;; Audio header hi
 
-      JMP start_loop
-    loop_args:
-      ;;    X = channel flag      X+1 = decoder offset
-      .byte AUDIO::CHANNEL_SQ1,   AUDIO::Track::sq1
-      .byte AUDIO::CHANNEL_SQ2,   AUDIO::Track::sq2
-      .byte AUDIO::CHANNEL_TRI,   AUDIO::Track::tri
-      .byte AUDIO::CHANNEL_NOISE, AUDIO::Track::noise
-    start_loop:
+      LDY #AUDIO::Track::decoders
+      LDA (PLO),Y
+      TAX
+      INY
+      LDA (PLO),Y
+      STX PLO
+      STA PHI
+
       LDY #$00
     loop:
       TYA
