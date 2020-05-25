@@ -21,6 +21,11 @@
     .byte %00001111
     .byte %01111111
     .byte %00001111
+  channel_bitflag_list:
+    .byte AUDIO::CHANNEL_SQ1
+    .byte AUDIO::CHANNEL_SQ2
+    .byte AUDIO::CHANNEL_TRI
+    .byte AUDIO::CHANNEL_NOISE
 
   .proc Init
       ;; Initialize audio engine
@@ -688,10 +693,10 @@
       JMP start
     loop_args:
         ;;    X = channel flag      X+1 = decoder offset
-        .byte AUDIO::CHANNEL_SQ1,   2*AUDIO::CHANNEL_SQ1_INDEX
-        .byte AUDIO::CHANNEL_SQ2,   2*AUDIO::CHANNEL_SQ2_INDEX
-        .byte AUDIO::CHANNEL_TRI,   2*AUDIO::CHANNEL_TRI_INDEX
-        .byte AUDIO::CHANNEL_NOISE, 2*AUDIO::CHANNEL_NOISE_INDEX
+        .byte AUDIO::CHANNEL_SQ1,   AUDIO::CHANNEL_SQ1_INDEX
+        .byte AUDIO::CHANNEL_SQ2,   AUDIO::CHANNEL_SQ2_INDEX
+        .byte AUDIO::CHANNEL_TRI,   AUDIO::CHANNEL_TRI_INDEX
+        .byte AUDIO::CHANNEL_NOISE, AUDIO::CHANNEL_NOISE_INDEX
     start:
       LDY #AUDIO::Track::channels_active
       LDA (PLO),Y
@@ -721,14 +726,16 @@
       LDA r0 ;; channels_active
       AND loop_args,Y
       BEQ next
-      PHA_SP ;; Decoder channel type
       LDA loop_args+1,Y
+      PHA_SP ;; Decoder channel offset
+      ASL A
       TAY
       LDA (PLO),Y
       PHA_SP ;; Decoder lo
       INY
       LDA (PLO),Y
       PHA_SP ;; Decoder hi
+
       LDA r0
       PHA
       LDA PLO
@@ -758,12 +765,12 @@
   ;;;; DecodeStream
   ;; 5-byte stack: 5 args, 0 return
   ;; Uses the given decoder with the given audio header to decode the next note
-  ;; Uses the channel flag to determine if we're Triangle
+  ;; Uses the channel flag to make channel-specific decisions
   .proc DecodeStream
       ;; stack frame
       audio_lo = SW_STACK-5
       audio_hi = SW_STACK-4
-      channel    = SW_STACK-3
+      channel_offset = SW_STACK-3 ;; 0=sq1, 1=sq2, 2=tri, 3=noise
       decoder_lo = SW_STACK-2
       decoder_hi = SW_STACK-1
 
@@ -782,7 +789,9 @@
       LDA (PLO),Y
       STA r1
 
-      LDA channel,X
+      LDA channel_offset,X
+      TAX
+      LDA Audio::channel_bitflag_list,X
       CMP #AUDIO::CHANNEL_TRI
       BEQ @when_tri
     @when_non_tri:

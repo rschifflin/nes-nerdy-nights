@@ -735,21 +735,53 @@
 .endproc
 
 .proc Test0DecodeStream
-    LDA #$00
+  JMP test
+  audio_stream:
+    .byte %00001111 ;; All channels
+    .byte %11000000 | %00011001 ;; Speed 6, Tempo 25 == Default speed at 150bpm
+    ;; In the future:
+    ;; .repeat n .byte instruments?
+    ;; .repeat n .byte patterns?
+    ;; .repeat n .byte frames?
+    .addr stream_ch0
+    .addr stream_ch1
+    .addr stream_ch1
+    .addr stream_ch1
+  stream_ch0:
+    .byte $A0, $A1
+    .byte $B0, $B1
+    .byte $C0, $C1
+  stream_ch1:
+    .byte $FF
+
+  test:
+    LDA #<audio_stream
+    PHA_SP
+    LDA #>audio_stream
+    PHA_SP
+    LDA #AUDIO::CHANNEL_SQ1_INDEX
+    PHA_SP
+    LDA #<audio::decoder_0
+    PHA_SP
+    LDA #>audio::decoder_0
+    PHA_SP
+    JSR Audio::InitializeDecoder
+
+    ;; 6 ticks for a tock, 4 tocks for a beat
+    .repeat 24
+      JSR Audio::DecodeStream
+    .endrepeat
+    PLN_SP 5
+    ;; Should advance the stream from note $A0 $A1 to note $B0 $B1
+
+    LDA #$B0
     STA TEST_EXPECTED
+    LDA #$B1
     STA TEST_EXPECTED+1
 
-    LDA #AUDIO::CHANNEL_SQ1
-    STA r0
-    LDA #$00
-    STA PLO
-    LDA #$00
-    STA PHI
-    JSR Audio::PrepareChannelBuffer
-
-    LDA audio::buffer_ch_addr_list
+    LDA audio::decoder_0 + AUDIO::Decoder::registers + AUDIO::Registers::note_lo
     STA TEST_ACTUAL
-    LDA audio::buffer_ch_addr_list+1,X
+    LDA audio::decoder_0 + AUDIO::Decoder::registers + AUDIO::Registers::note_hi
     STA TEST_ACTUAL+1
 
     SHOW
