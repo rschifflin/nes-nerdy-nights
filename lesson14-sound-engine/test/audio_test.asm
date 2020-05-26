@@ -995,8 +995,7 @@ note_table:
 
   stream_ch0:
     .byte $0D ;; Bb octave 1
-    .byte AUDIO::OP_CODES::LENGTH
-    .byte $04 ;; Length 4
+    .byte AUDIO::OP_CODES::LENGTH, $04 ;; Length 4
     .byte $3f ;; C octave 5
     .byte $0D ;; Bb octave 1
   stream_ch1:
@@ -1020,8 +1019,8 @@ note_table:
     ;; Initial tick always succeeds
     JSR Audio::DecodeStream
     .repeat 6
-      JSR Audio::DecodeStream
-    .endrepeat
+     JSR Audio::DecodeStream
+   .endrepeat
 
     LDA #$04
     STA TEST_EXPECTED ;; New length
@@ -1035,6 +1034,11 @@ note_table:
     LDA #$03
     STA TEST_EXPECTED+4 ;; New remaining, since we played 1 frame of next note
 
+    LDA #<(stream_ch0+4) ;; Shouldve read initial note, length op, length val, new note for +4
+    STA TEST_EXPECTED+5 ;; New stream head lo
+    LDA #>(stream_ch0+4) ;; Shouldve read initial note, length op, length val, new note for +4
+    STA TEST_EXPECTED+6 ;; New stream head hi
+
     LDA audio::decoder_0 + AUDIO::Decoder::length
     STA TEST_ACTUAL
     LDA audio::decoder_0 + AUDIO::Decoder::registers + AUDIO::Registers::note_lo
@@ -1045,6 +1049,10 @@ note_table:
     STA TEST_ACTUAL+3
     LDA audio::decoder_0 + AUDIO::Decoder::remaining
     STA TEST_ACTUAL+4
+    LDA audio::decoder_0 + AUDIO::Decoder::stream_head
+    STA TEST_ACTUAL+5
+    LDA audio::decoder_0 + AUDIO::Decoder::stream_head + 1
+    STA TEST_ACTUAL+6
 
     SHOW
     INC_TEST_NO
@@ -1057,6 +1065,7 @@ note_table:
     STA TEST_EXPECTED+3 ;; New elapsed, since we played 2 frames of next note
     LDA #$02
     STA TEST_EXPECTED+4 ;; New remaining, since we played 2 frames of next note
+
     LDA audio::decoder_0 + AUDIO::Decoder::elapsed
     STA TEST_ACTUAL+3
     LDA audio::decoder_0 + AUDIO::Decoder::remaining
@@ -1077,6 +1086,10 @@ note_table:
     STA TEST_EXPECTED+3 ;; New elapsed, since we played 1 frames of new note
     LDA #$03
     STA TEST_EXPECTED+4 ;; New remaining, since we played 3 frames of new note
+    LDA #<(stream_ch0+5) ;; Shouldve read initial note, length op, length val, newer note for +5
+    STA TEST_EXPECTED+5 ;; New stream head lo
+    LDA #>(stream_ch0+4) ;; Shouldve read initial note, length op, length val, newer note for +5
+    STA TEST_EXPECTED+6 ;; New stream head hi
 
     LDA audio::decoder_0 + AUDIO::Decoder::registers + AUDIO::Registers::note_lo
     STA TEST_ACTUAL+1 ;; new note_lo
@@ -1086,6 +1099,84 @@ note_table:
     STA TEST_ACTUAL+3
     LDA audio::decoder_0 + AUDIO::Decoder::remaining
     STA TEST_ACTUAL+4
+    LDA audio::decoder_0 + AUDIO::Decoder::stream_head
+    STA TEST_ACTUAL+5
+    LDA audio::decoder_0 + AUDIO::Decoder::stream_head + 1
+    STA TEST_ACTUAL+6
+
+    SHOW
+
+    PLN_SP 6
+    RTS
+.endproc
+
+.proc TestDecodeStreamLoop
+  JMP test
+  audio_stream:
+    .byte %00001111 ;; All channels
+    .byte %00000101 ;; Speed 5 aka 24 ticks per beat, 150bpm
+
+    .addr stream_ch0
+    .addr stream_ch1
+    .addr stream_ch1
+    .addr stream_ch1
+
+  stream_ch0:
+    .byte $0D ;; Bb octave 1
+    .byte $3f ;; C octave 5
+    .byte $17 ;; G# octave 1
+    .byte AUDIO::OP_CODES::LOOP
+  stream_ch1:
+    .byte $FF
+
+  test:
+    LDA #<audio_stream
+    PHA_SP
+    LDA #>audio_stream
+    PHA_SP
+    LDA #AUDIO::CHANNEL_SQ1_INDEX
+    PHA_SP
+    LDA #<audio::decoder_0
+    PHA_SP
+    LDA #>audio::decoder_0
+    PHA_SP
+    JSR Audio::InitializeDecoder
+    LDA #$00 ;; Prepare return value, ignore for this test
+    PHA_SP
+
+    ;; Initial tick always succeeds
+    JSR Audio::DecodeStream
+
+    .repeat 18
+      JSR Audio::DecodeStream
+    .endrepeat
+
+    LDA #<NOTE_B_FLAT_1
+    STA TEST_EXPECTED ;; Next note_lo
+    LDA #>NOTE_B_FLAT_1
+    STA TEST_EXPECTED+1 ;; Next note_hi
+
+    LDA audio::decoder_0 + AUDIO::Decoder::registers + AUDIO::Registers::note_lo
+    STA TEST_ACTUAL
+    LDA audio::decoder_0 + AUDIO::Decoder::registers + AUDIO::Registers::note_hi
+    STA TEST_ACTUAL+1
+
+    SHOW
+    INC_TEST_NO
+
+    .repeat 186 ;; cycle 31 times, % 3 = 1, so advance 1 note
+      JSR Audio::DecodeStream
+    .endrepeat
+
+    LDA #<NOTE_C_5
+    STA TEST_EXPECTED ;; Next note_lo
+    LDA #>NOTE_C_5
+    STA TEST_EXPECTED+1 ;; Next note_hi
+
+    LDA audio::decoder_0 + AUDIO::Decoder::registers + AUDIO::Registers::note_lo
+    STA TEST_ACTUAL
+    LDA audio::decoder_0 + AUDIO::Decoder::registers + AUDIO::Registers::note_hi
+    STA TEST_ACTUAL+1
 
     SHOW
 
@@ -1109,5 +1200,6 @@ note_table:
     TEST TestDecodeStreamStop
     TEST TestDecodeStreamSilence
     TEST TestDecodeStreamLength
+    TEST TestDecodeStreamLoop
     RTS
 .endproc

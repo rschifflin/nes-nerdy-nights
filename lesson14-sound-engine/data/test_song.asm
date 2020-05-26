@@ -49,8 +49,8 @@ test_song_sq1_stream:
   ;; C(6) = $4b
 
   .byte AUDIO::OP_CODES::LENGTH, $04
-  .byte $27,
-  .byte $33,
+  .byte $27
+  .byte $33
   .byte AUDIO::OP_CODES::SILENCE, AUDIO::OP_CODES::SILENCE, AUDIO::OP_CODES::SILENCE, AUDIO::OP_CODES::SILENCE
   .byte $3F
   .byte $4B
@@ -59,7 +59,8 @@ test_song_sq1_stream:
   .byte $33
   .byte $27
   .byte $1B
-  .byte AUDIO::OP_CODES::STOP
+  .byte AUDIO::OP_CODES::SILENCE, AUDIO::OP_CODES::SILENCE, AUDIO::OP_CODES::SILENCE, AUDIO::OP_CODES::SILENCE
+  .byte AUDIO::OP_CODES::LOOP
 
 test_song_sq2_stream:
   .byte AUDIO::OP_CODES::SILENCE, AUDIO::OP_CODES::SILENCE, AUDIO::OP_CODES::SILENCE, AUDIO::OP_CODES::SILENCE

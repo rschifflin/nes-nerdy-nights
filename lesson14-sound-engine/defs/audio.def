@@ -20,6 +20,7 @@
     SILENCE = $60
     STOP = $61
     LENGTH = $62
+    LOOP = $63
   .endscope
 
   .struct Registers

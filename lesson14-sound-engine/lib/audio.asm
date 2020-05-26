@@ -32,6 +32,7 @@
     .addr RunOpCodeSilence-1
     .addr RunOpCodeStop-1
     .addr RunOpCodeLength-1
+    .addr RunOpCodeLoop-1
     ;; TODO:
     ;;   2 = set_length(l)
     ;;   3 = set_envelope(e)
@@ -853,12 +854,6 @@
       LDY #AUDIO::Decoder::tick_counter
       STA (PLO),Y
 
-    check_remaining:
-      ;; Continue playing the previous note if its still held
-      LDY #AUDIO::Decoder::remaining
-      LDA (PLO),Y
-      BNE play_note
-
       ;; Fetch stream head
       LDY #AUDIO::Decoder::stream_head
       LDA (PLO),Y
@@ -866,6 +861,12 @@
       INY
       LDA (PLO),Y
       STA r1
+
+    check_remaining:
+      ;; Continue playing the previous note if its still held
+      LDY #AUDIO::Decoder::remaining
+      LDA (PLO),Y
+      BNE play_note
 
       ;; Read from stream head
     read_byte:
@@ -1084,6 +1085,46 @@
       RTS
   .endproc
 
+  ;;;; RunOpCodeLoop
+  ;; 5-byte stack: 5 args, 0 return
+  ;; Resets the stream header to the beginning
+  ;; P is a pointer to the decoder
+  ;; r0/r1 contain a pointer to the stream head
+  .proc RunOpCodeLoop
+      ;; stack frame
+      audio_lo = SW_STACK-6
+      audio_hi = SW_STACK-5
+      channel_offset = SW_STACK-4 ;; 0=sq1, 1=sq2, 2=tri, 3=noise
+      decoder_lo = SW_STACK-3
+      decoder_hi = SW_STACK-2
+      has_stopped = SW_STACK-1 ;; return val
+
+      ;; Reset stream_head
+      LDX SP
+      LDA audio_lo,X
+      STA r0
+      LDA audio_hi,X
+      STA r1
+      LDA #AUDIO::Stream::ch0
+      CLC
+      ADC channel_offset,X
+      TAY
+      LDA (r0),Y
+      TAX
+      INY
+      LDA (r0),Y
+      STX r0
+      STA r1
+
+      ;; Dont return to handle_opcode; loop back to read_byte and continue
+      PLA ;; RTS lo
+      PLA ;; RTS hi
+      LDA #>(Audio::DecodeStream::read_byte-1)
+      PHA
+      LDA #<(Audio::DecodeStream::read_byte-1)
+      PHA
+      RTS
+  .endproc
 
   .proc Disable
       LDA #$01
