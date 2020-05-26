@@ -221,6 +221,8 @@ run:
         LDA #>test_song_3
         PHA_SP
         JSR Audio::PlayBGM
+        JSR Audio::PlaySFX0
+        JSR Audio::PlaySFX1
         PLN_SP 2
         JMP done
         ;; when down pressed...

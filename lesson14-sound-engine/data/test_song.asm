@@ -27,18 +27,12 @@ test_song_2:
     .addr test_song_stop ;; ch3
 
 test_song_3:
-    .byte %00000001 ;; Just sq1
+    .byte %00001111 ;; All channels
     .byte %00000101 ;; speed/tempo, speed 5 = 24 ticks/beat = 150 bpm
-
-    ;; In the future:
-    ;; .repeat n .byte instruments?
-    ;; .repeat n .byte patterns?
-    ;; .repeat n .byte frames?
-
-    .addr test_song_stop ;; ch0
-    .addr test_song_stop ;; ch1
-    .addr test_song_stop ;; ch2
-    .addr test_song_stop ;; ch3
+    .addr test_song_sq1_stream;; ch0
+    .addr test_song_sq1_stream ;; ch1
+    .addr test_song_sq1_stream ;; ch2
+    .addr test_song_sq1_stream ;; ch3
 
 test_song_sq1_stream:
   ;; 4 notes = 1 beat

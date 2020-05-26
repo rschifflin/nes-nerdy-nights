@@ -1105,9 +1105,10 @@
       STA r0
       LDA audio_hi,X
       STA r1
-      LDA #AUDIO::Stream::ch0
+      LDA channel_offset,X
+      ASL A
       CLC
-      ADC channel_offset,X
+      ADC #AUDIO::Stream::ch0
       TAY
       LDA (r0),Y
       TAX
