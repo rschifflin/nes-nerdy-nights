@@ -1,7 +1,6 @@
 .scope audio
   disable:          .res 1
   apu_flags_buffer: .res 1
-  opcode_vector:    .res 2
 
 tracks:
   track_bgm:        .tag AUDIO::Track

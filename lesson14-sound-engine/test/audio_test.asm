@@ -94,35 +94,40 @@ note_table:
     .byte $30, $08, $00, $00 ;; Default silent registers
     .byte $E0 ;; Placeholder for speed/tempo
     .byte $00 ;; Tick counter
-    ;; TODO: .byte loop counter
-    ;; TODO: .byte channel done?
+    .byte $01 ;; Length counter
+    .byte $01 ;; Elapsed counter
+    .byte $00 ;; Remaining counter
+    .byte $00 ;; Instrument index
 
     ;; Decoder 1
     .addr stream_ch1   ;; stream head
     .byte $30, $08, $00, $00 ;; Default silent registers
     .byte $E0 ;; Placeholder for speed/tempo
     .byte $00 ;; Tick counter
-    ;; TODO: .byte length counter
-    ;; TODO: .byte loop counter
-    ;; TODO: .byte channel done?
+    .byte $01 ;; Length counter
+    .byte $01 ;; Elapsed counter
+    .byte $00 ;; Remaining counter
+    .byte $00 ;; Instrument index
 
     ;; Decoder 2
     .addr stream_ch2   ;; stream head
     .byte $80, $08, $00, $00 ;; Default silent registers (Note, this is a triangle ch)
     .byte $E0 ;; Placeholder for speed/tempo
     .byte $00 ;; Tick counter
-    ;; TODO: .byte length counter
-    ;; TODO: .byte loop counter
-    ;; TODO: .byte channel done?
+    .byte $01 ;; Length counter
+    .byte $01 ;; Elapsed counter
+    .byte $00 ;; Remaining counter
+    .byte $00 ;; Instrument index
 
     ;; Decoder 3
     .addr stream_ch3   ;; stream head
     .byte $30, $08, $00, $00 ;; Default silent registers
     .byte $E0 ;; Placeholder for speed/tempo
     .byte $00 ;; Tick counter
-    ;; TODO: .byte length counter
-    ;; TODO: .byte loop counter
-    ;; TODO: .byte channel done?
+    .byte $01 ;; Length counter
+    .byte $01 ;; Elapsed counter
+    .byte $00 ;; Remaining counter
+    .byte $00 ;; Instrument index
 
   test:
     LDX #$00
@@ -207,36 +212,40 @@ note_table:
     .byte $30, $08, $00, $00 ;; Default silent registers
     .byte $FA ;; Placeholder for speed/tempo
     .byte $00 ;; Tick counter
-    ;; TODO: .byte length counter
-    ;; TODO: .byte loop counter
-    ;; TODO: .byte channel done?
+    .byte $01 ;; Length counter
+    .byte $01 ;; Elapsed counter
+    .byte $00 ;; Remaining counter
+    .byte $00 ;; Instrument index
 
     ;; Decoder 5
     .addr stream_ch1   ;; stream head
     .byte $30, $08, $00, $00 ;; Default silent registers
     .byte $FA ;; Placeholder for speed/tempo
     .byte $00 ;; Tick counter
-    ;; TODO: .byte length counter
-    ;; TODO: .byte loop counter
-    ;; TODO: .byte channel done?
+    .byte $01 ;; Length counter
+    .byte $01 ;; Elapsed counter
+    .byte $00 ;; Remaining counter
+    .byte $00 ;; Instrument index
 
     ;; Decoder 6
     .addr stream_ch2   ;; stream head
     .byte $80, $08, $00, $00 ;; Default silent registers (Note, this is a triangle ch)
     .byte $FA ;; Placeholder for speed/tempo
     .byte $00 ;; Tick counter
-    ;; TODO: .byte length counter
-    ;; TODO: .byte loop counter
-    ;; TODO: .byte channel done?
+    .byte $01 ;; Length counter
+    .byte $01 ;; Elapsed counter
+    .byte $00 ;; Remaining counter
+    .byte $00 ;; Instrument index
 
     ;; Decoder 7
     .addr stream_ch3   ;; stream head
     .byte $30, $08, $00, $00 ;; Default silent registers
     .byte $FA ;; Placeholder for speed/tempo
     .byte $00 ;; Tick counter
-    ;; TODO: .byte length counter
-    ;; TODO: .byte loop counter
-    ;; TODO: .byte channel done?
+    .byte $01 ;; Length counter
+    .byte $01 ;; Elapsed counter
+    .byte $00 ;; Remaining counter
+    .byte $00 ;; Instrument index
 
   test:
     LDX #$00
@@ -321,36 +330,40 @@ note_table:
     .byte $30, $08, $00, $00 ;; Default silent registers
     .byte $14 ;; Placeholder for speed/tempo
     .byte $00 ;; Tick counter
-    ;; TODO: .byte length counter
-    ;; TODO: .byte loop counter
-    ;; TODO: .byte channel done?
+    .byte $01 ;; Length counter
+    .byte $01 ;; Elapsed counter
+    .byte $00 ;; Remaining counter
+    .byte $00 ;; Instrument index
 
     ;; Decoder 9
     .addr stream_ch1   ;; stream head
     .byte $30, $08, $00, $00 ;; Default silent registers
     .byte $14 ;; Placeholder for speed/tempo
     .byte $00 ;; Tick counter
-    ;; TODO: .byte length counter
-    ;; TODO: .byte loop counter
-    ;; TODO: .byte channel done?
+    .byte $01 ;; Length counter
+    .byte $01 ;; Elapsed counter
+    .byte $00 ;; Remaining counter
+    .byte $00 ;; Instrument index
 
     ;; Decoder A
     .addr stream_ch2   ;; stream head
     .byte $80, $08, $00, $00 ;; Default silent registers (Note, this is a triangle ch)
     .byte $14 ;; Placeholder for speed/tempo
     .byte $00 ;; Tick counter
-    ;; TODO: .byte length counter
-    ;; TODO: .byte loop counter
-    ;; TODO: .byte channel done?
+    .byte $01 ;; Length counter
+    .byte $01 ;; Elapsed counter
+    .byte $00 ;; Remaining counter
+    .byte $00 ;; Instrument index
 
     ;; Decoder B
     .addr stream_ch3   ;; stream head
     .byte $30, $08, $00, $00 ;; Default silent registers
     .byte $14 ;; Placeholder for speed/tempo
     .byte $00 ;; Tick counter
-    ;; TODO: .byte length counter
-    ;; TODO: .byte loop counter
-    ;; TODO: .byte channel done?
+    .byte $01 ;; Length counter
+    .byte $01 ;; Elapsed counter
+    .byte $00 ;; Remaining counter
+    .byte $00 ;; Instrument index
 
   test:
     LDX #$00
@@ -726,7 +739,7 @@ note_table:
     RTS
 .endproc
 
-.proc Test0DecodeStream
+.proc TestDecodeStreamTick
   JMP test
   audio_stream:
     .byte %00001111 ;; All channels
@@ -805,7 +818,7 @@ note_table:
     RTS
 .endproc
 
-.proc Test1DecodeStream
+.proc TestDecodeStreamStop
   JMP test
   audio_stream:
     .byte %00001111 ;; All channels
@@ -892,7 +905,7 @@ note_table:
     RTS
 .endproc
 
-.proc Test2DecodeStream
+.proc TestDecodeStreamSilence
   JMP test
   audio_stream:
     .byte %00001111 ;; All channels
@@ -967,6 +980,119 @@ note_table:
     RTS
 .endproc
 
+.proc TestDecodeStreamLength
+  JMP test
+  audio_stream:
+    .byte %00001111 ;; All channels
+    .byte %00000101 ;; Speed 5 aka 24 ticks per beat, 150bpm
+    ;; .repeat n .byte envelopes?
+    ;; .repeat n .byte frames?
+
+    .addr stream_ch0
+    .addr stream_ch1
+    .addr stream_ch1
+    .addr stream_ch1
+
+  stream_ch0:
+    .byte $0D ;; Bb octave 1
+    .byte AUDIO::OP_CODES::LENGTH
+    .byte $04 ;; Length 4
+    .byte $3f ;; C octave 5
+    .byte $0D ;; Bb octave 1
+  stream_ch1:
+    .byte $FF
+
+  test:
+    LDA #<audio_stream
+    PHA_SP
+    LDA #>audio_stream
+    PHA_SP
+    LDA #AUDIO::CHANNEL_SQ1_INDEX
+    PHA_SP
+    LDA #<audio::decoder_0
+    PHA_SP
+    LDA #>audio::decoder_0
+    PHA_SP
+    JSR Audio::InitializeDecoder
+    LDA #$00 ;; Prepare return value, ignore for this test
+    PHA_SP
+
+    ;; Initial tick always succeeds
+    JSR Audio::DecodeStream
+    .repeat 6
+      JSR Audio::DecodeStream
+    .endrepeat
+
+    LDA #$04
+    STA TEST_EXPECTED ;; New length
+    LDA #<NOTE_C_5
+    STA TEST_EXPECTED+1 ;; Next note_lo
+    LDA #>NOTE_C_5
+    STA TEST_EXPECTED+2 ;; Next note_hi
+
+    LDA #$01
+    STA TEST_EXPECTED+3 ;; New elapsed, since we played 1 frame of next note
+    LDA #$03
+    STA TEST_EXPECTED+4 ;; New remaining, since we played 1 frame of next note
+
+    LDA audio::decoder_0 + AUDIO::Decoder::length
+    STA TEST_ACTUAL
+    LDA audio::decoder_0 + AUDIO::Decoder::registers + AUDIO::Registers::note_lo
+    STA TEST_ACTUAL+1
+    LDA audio::decoder_0 + AUDIO::Decoder::registers + AUDIO::Registers::note_hi
+    STA TEST_ACTUAL+2
+    LDA audio::decoder_0 + AUDIO::Decoder::elapsed
+    STA TEST_ACTUAL+3
+    LDA audio::decoder_0 + AUDIO::Decoder::remaining
+    STA TEST_ACTUAL+4
+
+    SHOW
+    INC_TEST_NO
+
+    .repeat 6
+      JSR Audio::DecodeStream
+    .endrepeat
+
+    LDA #$02
+    STA TEST_EXPECTED+3 ;; New elapsed, since we played 2 frames of next note
+    LDA #$02
+    STA TEST_EXPECTED+4 ;; New remaining, since we played 2 frames of next note
+    LDA audio::decoder_0 + AUDIO::Decoder::elapsed
+    STA TEST_ACTUAL+3
+    LDA audio::decoder_0 + AUDIO::Decoder::remaining
+    STA TEST_ACTUAL+4
+
+    SHOW
+    INC_TEST_NO
+
+    .repeat 18
+      JSR Audio::DecodeStream
+    .endrepeat
+
+    LDA #<NOTE_B_FLAT_1
+    STA TEST_EXPECTED+1 ;; new note_lo
+    LDA #>NOTE_B_FLAT_1
+    STA TEST_EXPECTED+2 ;; new note_hi
+    LDA #$01
+    STA TEST_EXPECTED+3 ;; New elapsed, since we played 1 frames of new note
+    LDA #$03
+    STA TEST_EXPECTED+4 ;; New remaining, since we played 3 frames of new note
+
+    LDA audio::decoder_0 + AUDIO::Decoder::registers + AUDIO::Registers::note_lo
+    STA TEST_ACTUAL+1 ;; new note_lo
+    LDA audio::decoder_0 + AUDIO::Decoder::registers + AUDIO::Registers::note_hi
+    STA TEST_ACTUAL+2 ;; new note_hi
+    LDA audio::decoder_0 + AUDIO::Decoder::elapsed
+    STA TEST_ACTUAL+3
+    LDA audio::decoder_0 + AUDIO::Decoder::remaining
+    STA TEST_ACTUAL+4
+
+    SHOW
+
+    PLN_SP 6
+    RTS
+.endproc
+
 
 .proc RunTests
     TEST TestInit
@@ -979,8 +1105,9 @@ note_table:
     TEST Test0PrepareChannelBuffer
     TEST Test1PrepareChannelBuffer
     TEST Test2PrepareChannelBuffer
-    TEST Test0DecodeStream
-    TEST Test1DecodeStream
-    TEST Test2DecodeStream
+    TEST TestDecodeStreamTick
+    TEST TestDecodeStreamStop
+    TEST TestDecodeStreamSilence
+    TEST TestDecodeStreamLength
     RTS
 .endproc

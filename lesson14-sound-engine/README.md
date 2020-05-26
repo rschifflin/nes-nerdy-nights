@@ -45,5 +45,18 @@ Beyond that, much is still left to decide.
 
 ***Decoders***
 Since we're not sure what the _encoding_ of an audio stream is yet, we're not sure how to _decode_ it yet either. We do know our internal state will
-have a representation of the equivalent hardware registers of a channel, and we will hold a flag determining if we're active that can be toggled
-by interpreting control bytes in the encoded stream. Beyond that, much is still left to decide.
+have a representation of the equivalent hardware registers of a channel, and we will return a bit determining if we're active that can be toggled
+by interpreting an eof byte in the encoded stream. Beyond that, much is still left to decide.
+
+***Encoding***
+Audio byte streams are encoded by the following:
+byte 0-191: Music note index, from 0 = A octave0 to 191 = G# octave 7
+byte 192: silence
+byte 193: stream eof
+byte 194: future notes are length n, where n is the next byte
+byte 195: future notes have instrument n, where n is the next byte
+byte 196: loop to start of stream
+
+In the future, we could have "loop back m times, distance n_hi,n_lo", where m is the next byte, n is the next further word
+In the future, we could have a "length 1" literal to reduce encoding size
+In the future, we could have a "length 2" literal to reduce encoding size

@@ -158,3 +158,25 @@
   (description
     "Reading a silence opcode silences the envelope"
     "Pt3: Once another note is read after the silence, the volume is restored"))
+
+;; Test 13-a
+(asm-test
+  (name
+    "Decode length pt1")
+  (description
+    "Reading a length opcode sets the note length, and continues"
+    "decoding, reading the next note"))
+
+;; Test 13-b
+(asm-test
+  (name
+    "Decode length pt2")
+  (description
+    "When remaining is not zero, decoding decremets remaining and increments elapsed"))
+
+;; Test 14-c
+(asm-test
+  (name
+    "Decode length pt3")
+  (description
+    "When remaining is zero, decoding reads the next byte"))

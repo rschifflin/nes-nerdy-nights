@@ -29,103 +29,15 @@
   opcode_vector_table:
     ;; 0 = silence
     ;; 1 = stop
-    .addr RunOpCodeSilence
-    .addr RunOpCodeStop
+    .addr RunOpCodeSilence-1
+    .addr RunOpCodeStop-1
+    .addr RunOpCodeLength-1
     ;; TODO:
     ;;   2 = set_length(l)
     ;;   3 = set_envelope(e)
     ;;   4 = loop_once
     ;;   5 = loop_n(n)
 
-  ;;;; RunOpCode
-  ;; 6-byte stack; 5 args, 1 return
-  ;; Looks up the opcode handler from the vector table
-  ;; Sets it and jumps to it
-  ;; All opcode vectors hold a pointer to the stream head in r0+r1,
-  ;; and the same stack frame as DecodeStream
-  .proc RunOpCode
-      ;; stack frame
-      audio_lo = SW_STACK-6
-      audio_hi = SW_STACK-5
-      channel_offset = SW_STACK-4 ;; 0=sq1, 1=sq2, 2=tri, 3=noise
-      decoder_lo = SW_STACK-3
-      decoder_hi = SW_STACK-2
-      has_stopped = SW_STACK-1 ;; return val
-
-      ;; A contains opcode index. x2 to index into words
-      ASL A
-      TAX
-      LDA opcode_vector_table,X
-      STA audio::opcode_vector
-      LDA opcode_vector_table+1,X
-      STA audio::opcode_vector+1
-      JMP (audio::opcode_vector)
-  .endproc
-
-  ;;;; RunOpCodeSilence
-  ;; 5-byte stack: 5 args, 0 return
-  ;; Writes a 0 to the volume envelope
-  ;; P is a pointer to the decoder
-  ;; r0/r1 contain a pointer to the stream head
-  .proc RunOpCodeSilence
-      ;; stack frame
-      audio_lo = SW_STACK-6
-      audio_hi = SW_STACK-5
-      channel_offset = SW_STACK-4 ;; 0=sq1, 1=sq2, 2=tri, 3=noise
-      decoder_lo = SW_STACK-3
-      decoder_hi = SW_STACK-2
-      has_stopped = SW_STACK-1 ;; return val
-
-      ;; Write zero volume
-      LDX SP
-      LDA channel_offset,X
-      TAX
-      LDA Audio::channel_bitflag_list,X
-      CMP #AUDIO::CHANNEL_TRI
-      BEQ @when_tri
-    @when_non_tri:
-      LDY #(AUDIO::Decoder::registers + AUDIO::Registers::env)
-      LDA (PLO),Y
-      AND #%11110000  ;; Clear volume bits
-      JMP @set_env
-    @when_tri:
-      ;; Channel on  | Volume on
-      LDA #%10000000 | %01111111
-    @set_env:
-      LDY #(AUDIO::Decoder::registers + AUDIO::Registers::env)
-      STA (PLO),Y
-
-      RTS
-  .endproc
-
-  ;;;; RunOpCodeStop
-  ;; 6-byte stack: 5 args, 1 return
-  ;; Decrements the stream head ptr in r0/r1 back to before this byte, and indicates the stream is over by writing 1 to the high bit of the ret val
-  ;; P is a pointer to the decoder
-  ;; r0/r1 contain a pointer to the stream head
-  .proc RunOpCodeStop
-      ;; stack frame
-      audio_lo = SW_STACK-6
-      audio_hi = SW_STACK-5
-      channel_offset = SW_STACK-4 ;; 0=sq1, 1=sq2, 2=tri, 3=noise
-      decoder_lo = SW_STACK-3
-      decoder_hi = SW_STACK-2
-      has_stopped = SW_STACK-1 ;; return val
-
-      LDA r0
-      BNE @skip
-      DEC r1
-    @skip:
-      DEC r0
-      LDX SP
-      LDA has_stopped,X
-      ORA #%10000000
-      STA has_stopped,X
-      LDA #$00
-      LDY #AUDIO::Decoder::tick_counter
-      STA (PLO),Y
-      RTS
-  .endproc
 
   .proc Init
       ;; Initialize audio engine
@@ -441,7 +353,17 @@
 
       LDA #$00
       LDY #AUDIO::Decoder::tick_counter
-      STA (r0),Y
+      STA (r0),Y ;; Write tick_count
+      LDY #AUDIO::Decoder::remaining
+      STA (r0),Y ;; Write remaininig
+      LDY #AUDIO::Decoder::instrument
+      STA (r0),Y ;; Write instrument
+
+      LDA #$01
+      LDY #AUDIO::Decoder::length
+      STA (r0),Y ;; Write length
+      LDY #AUDIO::Decoder::elapsed
+      STA (r0),Y ;; Write elapsed
 
       RTS
   .endproc
@@ -931,6 +853,12 @@
       LDY #AUDIO::Decoder::tick_counter
       STA (PLO),Y
 
+    check_remaining:
+      ;; Continue playing the previous note if its still held
+      LDY #AUDIO::Decoder::remaining
+      LDA (PLO),Y
+      BNE play_note
+
       ;; Fetch stream head
       LDY #AUDIO::Decoder::stream_head
       LDA (PLO),Y
@@ -966,32 +894,59 @@
       LDA note_table+1,X
       LDY #(AUDIO::Decoder::registers + AUDIO::Registers::note_hi)
       STA (PLO),Y
-
-      ;; Write max volume
-      LDX SP
-      LDA channel_offset,X
-      TAX
-      LDA Audio::channel_bitflag_list,X
-      CMP #AUDIO::CHANNEL_TRI
-      BEQ @when_tri
-    @when_non_tri:
-      ;; Duty 50%    | Manual control | Volume max (15)
-      LDA #%10000000 | %00110000      | %00001111
-      JMP @set_env
-    @when_tri:
-      ;; Channel on  | Volume on
-      LDA #%10000000 | %01111111
-    @set_env:
-      LDY #(AUDIO::Decoder::registers + AUDIO::Registers::env)
+      LDY #(AUDIO::Decoder::length)
+      LDA (PLO),Y
+      LDY #(AUDIO::Decoder::remaining)
       STA (PLO),Y
-      JMP handle_done
+      LDA #$00
+      LDY #(AUDIO::Decoder::elapsed)
+      STA (PLO),Y
 
+    play_note:
+      .scope Volume
+          ;; TODO: Apply volume envelope from instrument or silence.
+          ;; For now, just write max volume
+          LDX SP
+          LDA channel_offset,X
+          TAX
+          LDA Audio::channel_bitflag_list,X
+          CMP #AUDIO::CHANNEL_TRI
+          BEQ @when_tri
+        @when_non_tri:
+          ;; Duty 50%    | Manual control | Volume max (15)
+          LDA #%10000000 | %00110000      | %00001111
+          JMP @set_env
+        @when_tri:
+          ;; Channel on  | Volume on
+          LDA #%10000000 | %01111111
+        @set_env:
+          LDY #(AUDIO::Decoder::registers + AUDIO::Registers::env)
+          STA (PLO),Y
+      .endscope
+      ;; Done using remaining and elapsed as indices into instrument envelope
+      ;; Decrement remaining
+      LDY #AUDIO::Decoder::remaining
+      LDA (PLO),Y
+      TAX
+      DEX
+      TXA
+      STA (PLO),Y
+
+      ;; Increment elapsed
+      LDY #AUDIO::Decoder::elapsed
+      LDA (PLO),Y
+      TAX
+      INX
+      TXA
+      STA (PLO),Y
+
+      JMP done
     handle_opcode:
       ;; A holds the opcode vector table index
       JSR RunOpCode
-    handle_done:
+    done:
       ;; Write back new stream head
-      LDY #(AUDIO::Decoder::stream_head)
+      LDY #AUDIO::Decoder::stream_head
       LDA r0
       STA (PLO),Y
       INY
@@ -1000,6 +955,135 @@
 
       RTS
   .endproc
+
+  ;;;; RunOpCode
+  ;; 6-byte stack; 5 args, 1 return
+  ;; Looks up the opcode handler from the vector table
+  ;; Sets it and jumps to it
+  ;; All opcode vectors hold a pointer to the stream head in r0+r1,
+  ;; and the same stack frame as DecodeStream
+  .proc RunOpCode
+      ;; stack frame
+      audio_lo = SW_STACK-6
+      audio_hi = SW_STACK-5
+      channel_offset = SW_STACK-4 ;; 0=sq1, 1=sq2, 2=tri, 3=noise
+      decoder_lo = SW_STACK-3
+      decoder_hi = SW_STACK-2
+      has_stopped = SW_STACK-1 ;; return val
+
+      ;; A contains opcode index. x2 to index into words
+      ASL A
+      TAX
+      LDA opcode_vector_table+1,X
+      PHA
+      LDA opcode_vector_table,X
+      PHA
+      RTS
+  .endproc
+
+  ;;;; RunOpCodeSilence
+  ;; 5-byte stack: 5 args, 0 return
+  ;; Writes a 0 to the volume envelope
+  ;; P is a pointer to the decoder
+  ;; r0/r1 contain a pointer to the stream head
+  .proc RunOpCodeSilence
+      ;; stack frame
+      audio_lo = SW_STACK-6
+      audio_hi = SW_STACK-5
+      channel_offset = SW_STACK-4 ;; 0=sq1, 1=sq2, 2=tri, 3=noise
+      decoder_lo = SW_STACK-3
+      decoder_hi = SW_STACK-2
+      has_stopped = SW_STACK-1 ;; return val
+
+      ;; Write zero volume
+      LDX SP
+      LDA channel_offset,X
+      TAX
+      LDA Audio::channel_bitflag_list,X
+      CMP #AUDIO::CHANNEL_TRI
+      BEQ @when_tri
+    @when_non_tri:
+      LDY #(AUDIO::Decoder::registers + AUDIO::Registers::env)
+      LDA (PLO),Y
+      AND #%11110000  ;; Clear volume bits
+      JMP @set_env
+    @when_tri:
+      ;; Channel on  | Volume on
+      LDA #%10000000 | %01111111
+    @set_env:
+      LDY #(AUDIO::Decoder::registers + AUDIO::Registers::env)
+      STA (PLO),Y
+
+      RTS
+  .endproc
+
+  ;;;; RunOpCodeLength
+  ;; 5-byte stack: 5 args, 0 return
+  ;; Sets the note length going forward by reading the next stream byte
+  ;; P is a pointer to the decoder
+  ;; r0/r1 contain a pointer to the stream head
+  .proc RunOpCodeLength
+      ;; stack frame
+      audio_lo = SW_STACK-6
+      audio_hi = SW_STACK-5
+      channel_offset = SW_STACK-4 ;; 0=sq1, 1=sq2, 2=tri, 3=noise
+      decoder_lo = SW_STACK-3
+      decoder_hi = SW_STACK-2
+      has_stopped = SW_STACK-1 ;; return val
+
+      ;; Read length
+      LDY #$00
+      LDA (r0),Y
+
+      ;; Write length
+      LDY #AUDIO::Decoder::length
+      STA (PLO),Y
+
+      ;; Increment stream_head
+      INC r0
+      BNE skip
+      INC r1
+    skip:
+
+      ;; Dont return to handle_opcode; loop back to read_byte and continue
+      PLA ;; RTS lo
+      PLA ;; RTS hi
+      LDA #>(Audio::DecodeStream::read_byte-1)
+      PHA
+      LDA #<(Audio::DecodeStream::read_byte-1)
+      PHA
+      RTS
+  .endproc
+
+  ;;;; RunOpCodeStop
+  ;; 6-byte stack: 5 args, 1 return
+  ;; Decrements the stream head ptr in r0/r1 back to before this byte, and indicates the stream is over by writing 1 to the high bit of the ret val
+  ;; P is a pointer to the decoder
+  ;; r0/r1 contain a pointer to the stream head
+  .proc RunOpCodeStop
+      ;; stack frame
+      audio_lo = SW_STACK-6
+      audio_hi = SW_STACK-5
+      channel_offset = SW_STACK-4 ;; 0=sq1, 1=sq2, 2=tri, 3=noise
+      decoder_lo = SW_STACK-3
+      decoder_hi = SW_STACK-2
+      has_stopped = SW_STACK-1 ;; return val
+
+      LDA r0
+      BNE @skip
+      DEC r1
+    @skip:
+      DEC r0
+      LDX SP
+      LDA has_stopped,X
+      ORA #%10000000
+      STA has_stopped,X
+      LDA #$00
+      LDY #AUDIO::Decoder::tick_counter
+      STA (PLO),Y
+      RTS
+  .endproc
+
 
   .proc Disable
       LDA #$01
