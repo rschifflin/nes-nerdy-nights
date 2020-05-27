@@ -98,6 +98,7 @@ note_table:
     .byte $01 ;; Elapsed counter
     .byte $00 ;; Remaining counter
     .byte $00 ;; Instrument index
+    .byte $0F ;; Volume
 
     ;; Decoder 1
     .addr stream_ch1   ;; stream head
@@ -108,6 +109,7 @@ note_table:
     .byte $01 ;; Elapsed counter
     .byte $00 ;; Remaining counter
     .byte $00 ;; Instrument index
+    .byte $0F ;; Volume
 
     ;; Decoder 2
     .addr stream_ch2   ;; stream head
@@ -118,6 +120,7 @@ note_table:
     .byte $01 ;; Elapsed counter
     .byte $00 ;; Remaining counter
     .byte $00 ;; Instrument index
+    .byte $0F ;; Volume
 
     ;; Decoder 3
     .addr stream_ch3   ;; stream head
@@ -128,6 +131,7 @@ note_table:
     .byte $01 ;; Elapsed counter
     .byte $00 ;; Remaining counter
     .byte $00 ;; Instrument index
+    .byte $0F ;; Volume
 
   test:
     LDX #$00
@@ -216,6 +220,7 @@ note_table:
     .byte $01 ;; Elapsed counter
     .byte $00 ;; Remaining counter
     .byte $00 ;; Instrument index
+    .byte $0F ;; Volume
 
     ;; Decoder 5
     .addr stream_ch1   ;; stream head
@@ -226,6 +231,7 @@ note_table:
     .byte $01 ;; Elapsed counter
     .byte $00 ;; Remaining counter
     .byte $00 ;; Instrument index
+    .byte $0F ;; Volume
 
     ;; Decoder 6
     .addr stream_ch2   ;; stream head
@@ -236,6 +242,7 @@ note_table:
     .byte $01 ;; Elapsed counter
     .byte $00 ;; Remaining counter
     .byte $00 ;; Instrument index
+    .byte $0F ;; Volume
 
     ;; Decoder 7
     .addr stream_ch3   ;; stream head
@@ -246,6 +253,7 @@ note_table:
     .byte $01 ;; Elapsed counter
     .byte $00 ;; Remaining counter
     .byte $00 ;; Instrument index
+    .byte $0F ;; Volume
 
   test:
     LDX #$00
@@ -334,6 +342,7 @@ note_table:
     .byte $01 ;; Elapsed counter
     .byte $00 ;; Remaining counter
     .byte $00 ;; Instrument index
+    .byte $0F ;; Volume
 
     ;; Decoder 9
     .addr stream_ch1   ;; stream head
@@ -344,6 +353,7 @@ note_table:
     .byte $01 ;; Elapsed counter
     .byte $00 ;; Remaining counter
     .byte $00 ;; Instrument index
+    .byte $0F ;; Volume
 
     ;; Decoder A
     .addr stream_ch2   ;; stream head
@@ -354,6 +364,7 @@ note_table:
     .byte $01 ;; Elapsed counter
     .byte $00 ;; Remaining counter
     .byte $00 ;; Instrument index
+    .byte $0F ;; Volume
 
     ;; Decoder B
     .addr stream_ch3   ;; stream head
@@ -364,6 +375,7 @@ note_table:
     .byte $01 ;; Elapsed counter
     .byte $00 ;; Remaining counter
     .byte $00 ;; Instrument index
+    .byte $0F ;; Volume
 
   test:
     LDX #$00
@@ -947,7 +959,7 @@ note_table:
     .endrepeat
 
     ;; Should not be enough to advance the stream to silence
-    LDA #%10111111 ;; Expect volume to stay high
+    LDA #%00111111 ;; Expect volume to stay high
     STA TEST_EXPECTED
     LDA audio::decoder_0 + AUDIO::Decoder::registers + AUDIO::Registers::env
     STA TEST_ACTUAL
@@ -957,7 +969,7 @@ note_table:
 
     ;; One more should read the silence note and quiet the stream
     JSR Audio::DecodeStream
-    LDA #%10110000 ;; Expect volume to be muted
+    LDA #%00110000 ;; Expect volume to be muted
     STA TEST_EXPECTED
     LDA audio::decoder_0 + AUDIO::Decoder::registers + AUDIO::Registers::env
     STA TEST_ACTUAL
@@ -969,7 +981,7 @@ note_table:
     .repeat 6
       JSR Audio::DecodeStream
     .endrepeat
-    LDA #%10111111 ;; Expect volume to be high again
+    LDA #%00111111 ;; Expect volume to be high again
     STA TEST_EXPECTED
     LDA audio::decoder_0 + AUDIO::Decoder::registers + AUDIO::Registers::env
     STA TEST_ACTUAL

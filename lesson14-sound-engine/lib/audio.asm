@@ -366,6 +366,10 @@
       LDY #AUDIO::Decoder::elapsed
       STA (r0),Y ;; Write elapsed
 
+      LDA #$0F
+      LDY #AUDIO::Decoder::volume
+      STA (r0),Y ;; Write length
+
       RTS
   .endproc
 
@@ -895,6 +899,14 @@
       LDA note_table+1,X
       LDY #(AUDIO::Decoder::registers + AUDIO::Registers::note_hi)
       STA (PLO),Y
+
+      ;; Clear mute on new note
+      LDY #AUDIO::Decoder::volume
+      LDA (PLO),Y
+      AND #%01111111
+      STA (PLO),Y
+
+    set_length:
       LDY #(AUDIO::Decoder::length)
       LDA (PLO),Y
       LDY #(AUDIO::Decoder::remaining)
@@ -904,25 +916,28 @@
       STA (PLO),Y
 
     play_note:
+      ;; Write back new stream head as this is a terminal state
+      ;; Also frees up r0/r1 for us
+      LDY #AUDIO::Decoder::stream_head
+      LDA r0
+      STA (PLO),Y
+      INY
+      LDA r1
+      STA (PLO),Y
+
       .scope Volume
-          ;; TODO: Apply volume envelope from instrument or silence.
-          ;; For now, just write max volume
-          LDX SP
-          LDA channel_offset,X
-          TAX
-          LDA Audio::channel_bitflag_list,X
-          CMP #AUDIO::CHANNEL_TRI
-          BEQ @when_tri
-        @when_non_tri:
-          ;; Duty 50%    | Manual control | Volume max (15)
-          LDA #%10000000 | %00110000      | %00001111
-          JMP @set_env
-        @when_tri:
-          ;; Channel on  | Volume on
-          LDA #%10000000 | %01111111
-        @set_env:
+          ;; TODO: Apply volume envelope from instrument
+          LDY #AUDIO::Decoder::volume
+          LDA (PLO),Y
+          BMI done ;; muted by silence opcode, skip the volume control
+          AND #%01111111
+          STA r0
           LDY #(AUDIO::Decoder::registers + AUDIO::Registers::env)
+          LDA (PLO),Y
+          AND #%11110000
+          ORA r0
           STA (PLO),Y
+        done:
       .endscope
       ;; Done using remaining and elapsed as indices into instrument envelope
       ;; Decrement remaining
@@ -945,7 +960,7 @@
     handle_opcode:
       ;; A holds the opcode vector table index
       JSR RunOpCode
-    done:
+
       ;; Write back new stream head
       LDY #AUDIO::Decoder::stream_head
       LDA r0
@@ -953,7 +968,7 @@
       INY
       LDA r1
       STA (PLO),Y
-
+    done:
       RTS
   .endproc
 
@@ -984,7 +999,7 @@
 
   ;;;; RunOpCodeSilence
   ;; 5-byte stack: 5 args, 0 return
-  ;; Writes a 0 to the volume envelope
+  ;; Writes a 1 to the high bit of volume, indicating muted
   ;; P is a pointer to the decoder
   ;; r0/r1 contain a pointer to the stream head
   .proc RunOpCodeSilence
@@ -996,24 +1011,38 @@
       decoder_hi = SW_STACK-2
       has_stopped = SW_STACK-1 ;; return val
 
-      ;; Write zero volume
+      ;; Write zero volume bit
+      LDA #%10000000
+      LDY #AUDIO::Decoder::volume
+      ORA (PLO),Y
+      STA (PLO),Y
+
+      ;; Set volume in env to 0
       LDX SP
+      LDY #(AUDIO::Decoder::registers + AUDIO::Registers::env)
       LDA channel_offset,X
       TAX
       LDA Audio::channel_bitflag_list,X
       CMP #AUDIO::CHANNEL_TRI
       BEQ @when_tri
     @when_non_tri:
-      LDY #(AUDIO::Decoder::registers + AUDIO::Registers::env)
       LDA (PLO),Y
       AND #%11110000  ;; Clear volume bits
       JMP @set_env
     @when_tri:
-      ;; Channel on  | Volume on
-      LDA #%10000000 | %01111111
+      LDA #%10000000  ;; Clear volume bits
     @set_env:
-      LDY #(AUDIO::Decoder::registers + AUDIO::Registers::env)
       STA (PLO),Y
+
+      ;; Dont return to handle_opcode; loop back to set_length and continue
+      ;; This treats silence as if it were just another note
+      PLA ;; RTS lo
+      PLA ;; RTS hi
+      LDA #>(Audio::DecodeStream::set_length-1)
+      PHA
+      LDA #<(Audio::DecodeStream::set_length-1)
+      PHA
+      RTS
 
       RTS
   .endproc

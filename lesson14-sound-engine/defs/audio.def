@@ -66,7 +66,8 @@
     length       .byte ;; Indicates total note length
     elapsed      .byte ;; Indicates current note playtime
     remaining    .byte ;; Length-elapsed, indicates note left to play
-    instrument    .byte ;; Index into instrument table
+    instrument   .byte ;; Index into instrument table
+    volume       .byte ;; Lower 4 bits are channel volume 0-F. Initialized high to F
 
     ; length counter? ;;
     ;; loop counter?

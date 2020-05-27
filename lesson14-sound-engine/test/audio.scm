@@ -140,7 +140,7 @@
   (name
     "Decode silence pt1")
   (description
-    "Reading a silence opcode silences the envelope"
+    "Reading a silence opcode sets the silence volume bit to 1"
     "Pt1: Before a silence opcode is reached, dont modify the volume"))
 
 ;; Test 12-b
@@ -148,15 +148,15 @@
   (name
     "Decode silence pt2")
   (description
-    "Reading a silence opcode silences the envelope"
-    "Pt2: Once a silence opcode is reached, the envelope volume is set to 0"))
+    "Reading a silence opcode sets the silence volume bit to 1"
+    "Pt2: Once a silence opcode is reached, the volume is always 0"))
 
 ;; Test 12-c
 (asm-test
   (name
     "Decode silence pt3")
   (description
-    "Reading a silence opcode silences the envelope"
+    "Reading a silence opcode sets the silence volume bit to 1"
     "Pt3: Once another note is read after the silence, the volume is restored"))
 
 ;; Test 13-a
