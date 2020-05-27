@@ -181,14 +181,14 @@
   (description
     "When remaining is zero, decoding reads the next byte"))
 
-;; Test 15
+;; Test 15-a
 (asm-test
   (name
     "Decode loop")
   (description
     "When decoding a loop, we simply skip back to the first byte"))
 
-;; Test 15
+;; Test 15-b
 (asm-test
   (name
     "Decode loop pt2")

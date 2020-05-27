@@ -16,17 +16,17 @@ note_table:
     ;; BGM track:
     .byte $00 ;; Channel mask
     .addr $0000 ;; no audio stream
-    .addr Audio::bgm_decoder_table ;; ptr to decoders
+    .addr audio_rom::bgm_decoder_table ;; ptr to decoders
 
     ;; SFX0 track:
     .byte $00 ;; Channel mask
     .addr $0000 ;; no audio stream
-    .addr Audio::sfx0_decoder_table ;; ptr to decoders
+    .addr audio_rom::sfx0_decoder_table ;; ptr to decoders
 
     ;; SFX1 track:
     .byte $00 ;; Channel mask
     .addr $0000 ;; no audio stream
-    .addr Audio::sfx1_decoder_table ;; ptr to decoders
+    .addr audio_rom::sfx1_decoder_table ;; ptr to decoders
 
     ;; Disable
     .byte $FF
@@ -37,7 +37,7 @@ note_table:
   loop:
     LDA expected,X
     STA TEST_EXPECTED,X
-    LDA audio::track_bgm,X
+    LDA audio_ram::track_bgm,X
     STA TEST_ACTUAL,X
     INX
     CPX #$0F
@@ -45,7 +45,7 @@ note_table:
 
     LDA expected,X
     STA TEST_EXPECTED,X
-    LDA audio::disable
+    LDA audio_ram::disable
     STA TEST_ACTUAL,X
     INX
 
@@ -87,7 +87,7 @@ note_table:
     ;; BGM track
     .byte %00001010 ;; Channel mask
     .addr audio_stream ;; ptr to audio stream
-    .addr Audio::bgm_decoder_table ;; ptr to decoders
+    .addr audio_rom::bgm_decoder_table ;; ptr to decoders
 
     ;; Decoder 0
     .addr stream_ch0   ;; stream head
@@ -154,7 +154,7 @@ note_table:
       LDX #$00
       LDY #$00
     bgm:
-      LDA audio::track_bgm, X
+      LDA audio_ram::track_bgm, X
       STA TEST_ACTUAL, Y
       INY
       INX
@@ -163,7 +163,7 @@ note_table:
 
       LDX #$00
     decoders:
-      LDA audio::decoders, X
+      LDA audio_ram::decoders, X
       STA TEST_ACTUAL, Y
       INY
       INX
@@ -209,7 +209,7 @@ note_table:
     ;; SFX0 track
     .byte %00000100 ;; Channel mask
     .addr audio_stream ;; ptr to audio stream
-    .addr Audio::sfx0_decoder_table ;; ptr to decoder
+    .addr audio_rom::sfx0_decoder_table ;; ptr to decoder
 
     ;; Decoder 4
     .addr stream_ch0   ;; stream head
@@ -276,7 +276,7 @@ note_table:
       LDX #$00
       LDY #$00
     sfx0:
-      LDA audio::track_sfx0, X
+      LDA audio_ram::track_sfx0, X
       STA TEST_ACTUAL, Y
       INY
       INX
@@ -285,7 +285,7 @@ note_table:
 
       LDX #$00
     decoders:
-      LDA audio::decoder_4, X
+      LDA audio_ram::decoder_4, X
       STA TEST_ACTUAL, Y
       INY
       INX
@@ -331,7 +331,7 @@ note_table:
     ;; SFX1 track (11 bytes):
     .byte %00001111 ;; Channel mask
     .addr audio_stream ;; ptr to audio stream
-    .addr Audio::sfx1_decoder_table ;; ptr to decoder
+    .addr audio_rom::sfx1_decoder_table ;; ptr to decoder
 
     ;; Decoder 8
     .addr stream_ch0   ;; stream head
@@ -398,7 +398,7 @@ note_table:
       LDX #$00
       LDY #$00
     sfx1:
-      LDA audio::track_sfx1, X
+      LDA audio_ram::track_sfx1, X
       STA TEST_ACTUAL, Y
       INY
       INX
@@ -407,7 +407,7 @@ note_table:
 
       LDX #$00
     decoders:
-      LDA audio::decoder_8, X
+      LDA audio_ram::decoder_8, X
       STA TEST_ACTUAL, Y
       INY
       INX
@@ -421,15 +421,15 @@ note_table:
 
 .proc Test0TrackForChannel
     LDA #%00001111 ;; All channels active
-    STA audio::track_bgm + AUDIO::Track::channels_active
-    STA audio::track_sfx0 + AUDIO::Track::channels_active
-    STA audio::track_sfx1 + AUDIO::Track::channels_active
+    STA audio_ram::track_bgm + AUDIO::Track::channels_active
+    STA audio_ram::track_sfx0 + AUDIO::Track::channels_active
+    STA audio_ram::track_sfx1 + AUDIO::Track::channels_active
 
     LDX #$00
   expected:
-    LDA #<audio::track_sfx1
+    LDA #<audio_ram::track_sfx1
     STA TEST_EXPECTED,X
-    LDA #>audio::track_sfx1
+    LDA #>audio_ram::track_sfx1
     STA TEST_EXPECTED+1,X
     INX
     INX
@@ -469,31 +469,31 @@ note_table:
 
 .proc Test1TrackForChannel
     LDA #%00001100 ;; Highest prio has NOISE and TRI active
-    STA audio::track_sfx1 + AUDIO::Track::channels_active
+    STA audio_ram::track_sfx1 + AUDIO::Track::channels_active
 
     LDA #%00000110 ;; Middle prio has TRI and SQ2 active
-    STA audio::track_sfx0 + AUDIO::Track::channels_active
+    STA audio_ram::track_sfx0 + AUDIO::Track::channels_active
 
     LDA #%00000011 ;; Lowest prio has SQ2 and SQ1 active
-    STA audio::track_bgm + AUDIO::Track::channels_active
+    STA audio_ram::track_bgm + AUDIO::Track::channels_active
 
     ;; Expect BGM (lowest prio) to map to sq0
-    LDA #<audio::track_bgm
+    LDA #<audio_ram::track_bgm
     STA TEST_EXPECTED
-    LDA #>audio::track_bgm
+    LDA #>audio_ram::track_bgm
     STA TEST_EXPECTED+1
 
     ;; Expect sfx0 (middle prio) to map to sq1
-    LDA #<audio::track_sfx0
+    LDA #<audio_ram::track_sfx0
     STA TEST_EXPECTED+2
-    LDA #>audio::track_sfx0
+    LDA #>audio_ram::track_sfx0
     STA TEST_EXPECTED+3
 
     ;; Expect sfx1 (highest prio) to map to tri and noise
-    LDA #<audio::track_sfx1
+    LDA #<audio_ram::track_sfx1
     STA TEST_EXPECTED+4
     STA TEST_EXPECTED+6
-    LDA #>audio::track_sfx1
+    LDA #>audio_ram::track_sfx1
     STA TEST_EXPECTED+5
     STA TEST_EXPECTED+7
 
@@ -530,15 +530,15 @@ note_table:
 
 .proc Test2TrackForChannel
     LDA #%00001101 ;; All channels missing sq2
-    STA audio::track_bgm + AUDIO::Track::channels_active
-    STA audio::track_sfx0 + AUDIO::Track::channels_active
-    STA audio::track_sfx1 + AUDIO::Track::channels_active
+    STA audio_ram::track_bgm + AUDIO::Track::channels_active
+    STA audio_ram::track_sfx0 + AUDIO::Track::channels_active
+    STA audio_ram::track_sfx1 + AUDIO::Track::channels_active
 
     LDX #$00
   expected:
-    LDA #<audio::track_sfx1
+    LDA #<audio_ram::track_sfx1
     STA TEST_EXPECTED,X
-    LDA #>audio::track_sfx1
+    LDA #>audio_ram::track_sfx1
     STA TEST_EXPECTED+1,X
     INX
     INX
@@ -580,23 +580,23 @@ note_table:
 .endproc
 
 .proc Test0PrepareChannelBuffer
-    LDA #<(audio::decoder_0 + AUDIO::Decoder::registers)
+    LDA #<(audio_ram::decoder_0 + AUDIO::Decoder::registers)
     STA TEST_EXPECTED
-    LDA #>(audio::decoder_0 + AUDIO::Decoder::registers)
+    LDA #>(audio_ram::decoder_0 + AUDIO::Decoder::registers)
     STA TEST_EXPECTED+1
 
     JSR Audio::Init
     LDA #AUDIO::CHANNEL_SQ1
     STA r0
-    LDA #<audio::track_bgm
+    LDA #<audio_ram::track_bgm
     STA PLO
-    LDA #>audio::track_bgm
+    LDA #>audio_ram::track_bgm
     STA PHI
     JSR Audio::PrepareChannelBuffer
 
-    LDA audio::buffer_ch_addr_list
+    LDA audio_ram::buffer_ch_addr_list
     STA TEST_ACTUAL
-    LDA audio::buffer_ch_addr_list+1
+    LDA audio_ram::buffer_ch_addr_list+1
     STA TEST_ACTUAL+1
 
     SHOW
@@ -607,13 +607,13 @@ note_table:
     JMP test
   call_args:
     .byte AUDIO::CHANNEL_SQ1
-    .addr audio::track_bgm
+    .addr audio_ram::track_bgm
     .byte AUDIO::CHANNEL_SQ2
-    .addr audio::track_sfx0
+    .addr audio_ram::track_sfx0
     .byte AUDIO::CHANNEL_TRI
-    .addr audio::track_bgm
+    .addr audio_ram::track_bgm
     .byte AUDIO::CHANNEL_NOISE
-    .addr audio::track_sfx1
+    .addr audio_ram::track_sfx1
 
   test:
     ;; Expect the channel buffer order to be:
@@ -626,7 +626,7 @@ note_table:
         LDY #$00
       sq1:
         TXA
-        STA audio::decoder_0 + AUDIO::Decoder::registers, Y
+        STA audio_ram::decoder_0 + AUDIO::Decoder::registers, Y
         INX
         INY
         CPY #$04
@@ -635,7 +635,7 @@ note_table:
         LDY #$00
       sq2:
         TXA
-        STA audio::decoder_5 + AUDIO::Decoder::registers, Y
+        STA audio_ram::decoder_5 + AUDIO::Decoder::registers, Y
         INX
         INY
         CPY #$04
@@ -644,7 +644,7 @@ note_table:
         LDY #$00
       tri:
         TXA
-        STA audio::decoder_2 + AUDIO::Decoder::registers, Y
+        STA audio_ram::decoder_2 + AUDIO::Decoder::registers, Y
         INX
         INY
         CPY #$04
@@ -653,7 +653,7 @@ note_table:
         LDY #$00
       noise:
         TXA
-        STA audio::decoder_B + AUDIO::Decoder::registers, Y
+        STA audio_ram::decoder_B + AUDIO::Decoder::registers, Y
         INX
         INY
         CPY #$04
@@ -695,9 +695,9 @@ note_table:
     ASL A
     TAX
 
-    LDA audio::buffer_ch_addr_list,X
+    LDA audio_ram::buffer_ch_addr_list,X
     STA PLO
-    LDA audio::buffer_ch_addr_list+1,X
+    LDA audio_ram::buffer_ch_addr_list+1,X
     STA PHI
 
     TXA
@@ -742,9 +742,9 @@ note_table:
     STA PHI
     JSR Audio::PrepareChannelBuffer
 
-    LDA audio::buffer_ch_addr_list
+    LDA audio_ram::buffer_ch_addr_list
     STA TEST_ACTUAL
-    LDA audio::buffer_ch_addr_list+1,X
+    LDA audio_ram::buffer_ch_addr_list+1,X
     STA TEST_ACTUAL+1
 
     SHOW
@@ -778,9 +778,9 @@ note_table:
     PHA_SP
     LDA #AUDIO::CHANNEL_SQ1_INDEX
     PHA_SP
-    LDA #<audio::decoder_0
+    LDA #<audio_ram::decoder_0
     PHA_SP
-    LDA #>audio::decoder_0
+    LDA #>audio_ram::decoder_0
     PHA_SP
     JSR Audio::InitializeDecoder
 
@@ -794,9 +794,9 @@ note_table:
     LDA #>NOTE_B_FLAT_1
     STA TEST_EXPECTED+1
 
-    LDA audio::decoder_0 + AUDIO::Decoder::registers + AUDIO::Registers::note_lo
+    LDA audio_ram::decoder_0 + AUDIO::Decoder::registers + AUDIO::Registers::note_lo
     STA TEST_ACTUAL
-    LDA audio::decoder_0 + AUDIO::Decoder::registers + AUDIO::Registers::note_hi
+    LDA audio_ram::decoder_0 + AUDIO::Decoder::registers + AUDIO::Registers::note_hi
     STA TEST_ACTUAL+1
 
     SHOW
@@ -820,9 +820,9 @@ note_table:
     LDA #>NOTE_G_SHARP_1
     STA TEST_EXPECTED+1
 
-    LDA audio::decoder_0 + AUDIO::Decoder::registers + AUDIO::Registers::note_lo
+    LDA audio_ram::decoder_0 + AUDIO::Decoder::registers + AUDIO::Registers::note_lo
     STA TEST_ACTUAL
-    LDA audio::decoder_0 + AUDIO::Decoder::registers + AUDIO::Registers::note_hi
+    LDA audio_ram::decoder_0 + AUDIO::Decoder::registers + AUDIO::Registers::note_hi
     STA TEST_ACTUAL+1
 
     SHOW
@@ -861,9 +861,9 @@ note_table:
     PHA_SP
     LDA #AUDIO::CHANNEL_SQ1_INDEX
     PHA_SP
-    LDA #<audio::decoder_0
+    LDA #<audio_ram::decoder_0
     PHA_SP
-    LDA #>audio::decoder_0
+    LDA #>audio_ram::decoder_0
     PHA_SP
     JSR Audio::InitializeDecoder
 
@@ -944,9 +944,9 @@ note_table:
     PHA_SP
     LDA #AUDIO::CHANNEL_SQ1_INDEX
     PHA_SP
-    LDA #<audio::decoder_0
+    LDA #<audio_ram::decoder_0
     PHA_SP
-    LDA #>audio::decoder_0
+    LDA #>audio_ram::decoder_0
     PHA_SP
     JSR Audio::InitializeDecoder
 
@@ -961,7 +961,7 @@ note_table:
     ;; Should not be enough to advance the stream to silence
     LDA #%00111111 ;; Expect volume to stay high
     STA TEST_EXPECTED
-    LDA audio::decoder_0 + AUDIO::Decoder::registers + AUDIO::Registers::env
+    LDA audio_ram::decoder_0 + AUDIO::Decoder::registers + AUDIO::Registers::env
     STA TEST_ACTUAL
 
     SHOW
@@ -971,7 +971,7 @@ note_table:
     JSR Audio::DecodeStream
     LDA #%00110000 ;; Expect volume to be muted
     STA TEST_EXPECTED
-    LDA audio::decoder_0 + AUDIO::Decoder::registers + AUDIO::Registers::env
+    LDA audio_ram::decoder_0 + AUDIO::Decoder::registers + AUDIO::Registers::env
     STA TEST_ACTUAL
 
     SHOW
@@ -983,7 +983,7 @@ note_table:
     .endrepeat
     LDA #%00111111 ;; Expect volume to be high again
     STA TEST_EXPECTED
-    LDA audio::decoder_0 + AUDIO::Decoder::registers + AUDIO::Registers::env
+    LDA audio_ram::decoder_0 + AUDIO::Decoder::registers + AUDIO::Registers::env
     STA TEST_ACTUAL
 
     SHOW
@@ -1020,9 +1020,9 @@ note_table:
     PHA_SP
     LDA #AUDIO::CHANNEL_SQ1_INDEX
     PHA_SP
-    LDA #<audio::decoder_0
+    LDA #<audio_ram::decoder_0
     PHA_SP
-    LDA #>audio::decoder_0
+    LDA #>audio_ram::decoder_0
     PHA_SP
     JSR Audio::InitializeDecoder
     LDA #$00 ;; Prepare return value, ignore for this test
@@ -1051,19 +1051,19 @@ note_table:
     LDA #>(stream_ch0+4) ;; Shouldve read initial note, length op, length val, new note for +4
     STA TEST_EXPECTED+6 ;; New stream head hi
 
-    LDA audio::decoder_0 + AUDIO::Decoder::length
+    LDA audio_ram::decoder_0 + AUDIO::Decoder::length
     STA TEST_ACTUAL
-    LDA audio::decoder_0 + AUDIO::Decoder::registers + AUDIO::Registers::note_lo
+    LDA audio_ram::decoder_0 + AUDIO::Decoder::registers + AUDIO::Registers::note_lo
     STA TEST_ACTUAL+1
-    LDA audio::decoder_0 + AUDIO::Decoder::registers + AUDIO::Registers::note_hi
+    LDA audio_ram::decoder_0 + AUDIO::Decoder::registers + AUDIO::Registers::note_hi
     STA TEST_ACTUAL+2
-    LDA audio::decoder_0 + AUDIO::Decoder::elapsed
+    LDA audio_ram::decoder_0 + AUDIO::Decoder::elapsed
     STA TEST_ACTUAL+3
-    LDA audio::decoder_0 + AUDIO::Decoder::remaining
+    LDA audio_ram::decoder_0 + AUDIO::Decoder::remaining
     STA TEST_ACTUAL+4
-    LDA audio::decoder_0 + AUDIO::Decoder::stream_head
+    LDA audio_ram::decoder_0 + AUDIO::Decoder::stream_head
     STA TEST_ACTUAL+5
-    LDA audio::decoder_0 + AUDIO::Decoder::stream_head + 1
+    LDA audio_ram::decoder_0 + AUDIO::Decoder::stream_head + 1
     STA TEST_ACTUAL+6
 
     SHOW
@@ -1078,9 +1078,9 @@ note_table:
     LDA #$02
     STA TEST_EXPECTED+4 ;; New remaining, since we played 2 frames of next note
 
-    LDA audio::decoder_0 + AUDIO::Decoder::elapsed
+    LDA audio_ram::decoder_0 + AUDIO::Decoder::elapsed
     STA TEST_ACTUAL+3
-    LDA audio::decoder_0 + AUDIO::Decoder::remaining
+    LDA audio_ram::decoder_0 + AUDIO::Decoder::remaining
     STA TEST_ACTUAL+4
 
     SHOW
@@ -1103,17 +1103,17 @@ note_table:
     LDA #>(stream_ch0+4) ;; Shouldve read initial note, length op, length val, newer note for +5
     STA TEST_EXPECTED+6 ;; New stream head hi
 
-    LDA audio::decoder_0 + AUDIO::Decoder::registers + AUDIO::Registers::note_lo
+    LDA audio_ram::decoder_0 + AUDIO::Decoder::registers + AUDIO::Registers::note_lo
     STA TEST_ACTUAL+1 ;; new note_lo
-    LDA audio::decoder_0 + AUDIO::Decoder::registers + AUDIO::Registers::note_hi
+    LDA audio_ram::decoder_0 + AUDIO::Decoder::registers + AUDIO::Registers::note_hi
     STA TEST_ACTUAL+2 ;; new note_hi
-    LDA audio::decoder_0 + AUDIO::Decoder::elapsed
+    LDA audio_ram::decoder_0 + AUDIO::Decoder::elapsed
     STA TEST_ACTUAL+3
-    LDA audio::decoder_0 + AUDIO::Decoder::remaining
+    LDA audio_ram::decoder_0 + AUDIO::Decoder::remaining
     STA TEST_ACTUAL+4
-    LDA audio::decoder_0 + AUDIO::Decoder::stream_head
+    LDA audio_ram::decoder_0 + AUDIO::Decoder::stream_head
     STA TEST_ACTUAL+5
-    LDA audio::decoder_0 + AUDIO::Decoder::stream_head + 1
+    LDA audio_ram::decoder_0 + AUDIO::Decoder::stream_head + 1
     STA TEST_ACTUAL+6
 
     SHOW
@@ -1148,9 +1148,9 @@ note_table:
     PHA_SP
     LDA #AUDIO::CHANNEL_SQ1_INDEX
     PHA_SP
-    LDA #<audio::decoder_0
+    LDA #<audio_ram::decoder_0
     PHA_SP
-    LDA #>audio::decoder_0
+    LDA #>audio_ram::decoder_0
     PHA_SP
     JSR Audio::InitializeDecoder
     LDA #$00 ;; Prepare return value, ignore for this test
@@ -1168,9 +1168,9 @@ note_table:
     LDA #>NOTE_B_FLAT_1
     STA TEST_EXPECTED+1 ;; Next note_hi
 
-    LDA audio::decoder_0 + AUDIO::Decoder::registers + AUDIO::Registers::note_lo
+    LDA audio_ram::decoder_0 + AUDIO::Decoder::registers + AUDIO::Registers::note_lo
     STA TEST_ACTUAL
-    LDA audio::decoder_0 + AUDIO::Decoder::registers + AUDIO::Registers::note_hi
+    LDA audio_ram::decoder_0 + AUDIO::Decoder::registers + AUDIO::Registers::note_hi
     STA TEST_ACTUAL+1
 
     SHOW
@@ -1185,9 +1185,9 @@ note_table:
     LDA #>NOTE_C_5
     STA TEST_EXPECTED+1 ;; Next note_hi
 
-    LDA audio::decoder_0 + AUDIO::Decoder::registers + AUDIO::Registers::note_lo
+    LDA audio_ram::decoder_0 + AUDIO::Decoder::registers + AUDIO::Registers::note_lo
     STA TEST_ACTUAL
-    LDA audio::decoder_0 + AUDIO::Decoder::registers + AUDIO::Registers::note_hi
+    LDA audio_ram::decoder_0 + AUDIO::Decoder::registers + AUDIO::Registers::note_hi
     STA TEST_ACTUAL+1
 
     SHOW

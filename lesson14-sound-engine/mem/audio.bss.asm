@@ -1,4 +1,4 @@
-.scope audio
+.scope audio_ram
   disable:          .res 1
   apu_flags_buffer: .res 1
 

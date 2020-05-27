@@ -25,6 +25,30 @@ p2_controller_prev: .res 1 ;; Holds last frame's value of p2_controller
 p1_controller_rising: .res 1 ;; Holds p1_controller fresh press
 p2_controller_rising: .res 1 ;; Holds p2_controller fresh press
 
+.segment "PRG0" ;; Default bank-swapped PRG ROM at $8000.
+JMP RESET       ;; Entry point on program start
+
+palette:
+  .include "data/palette.asm"
+
+name_table:
+  .include "data/name_table.asm"
+
+attribute_table:
+  .include "data/attr_table.asm"
+
+sprites:
+  .include "data/sprites.asm"
+
+strings:
+  .include "data/strings.asm"
+
+note_table:
+  .include "data/notes_ntsc.asm"
+
+test_song:
+  .include "data/audio.asm"
+
 .segment "PRG1" ;; Fixed PRG ROM. Always present
   .include "lib/core.asm"   ;; 6502 basic utilities. Should always remain banked in
   .include "lib/stack.asm"  ;; Subroutines for software stack. Should always remain banked in.
@@ -216,9 +240,9 @@ run:
         LDA p1_controller_rising
         AND #CONTROLLER_DOWN
         BEQ no_down
-        LDA #<test_song_3
+        LDA #<audio_data::test_song_3
         PHA_SP
-        LDA #>test_song_3
+        LDA #>audio_data::test_song_3
         PHA_SP
         JSR Audio::PlayBGM
         JSR Audio::PlaySFX0
@@ -231,9 +255,9 @@ run:
         LDA p1_controller_rising
         AND #CONTROLLER_A
         BEQ no_a
-        LDA #<test_song_1
+        LDA #<audio_data::test_song_1
         PHA_SP
-        LDA #>test_song_1
+        LDA #>audio_data::test_song_1
         PHA_SP
         JSR Audio::PlayBGM
         PLN_SP 2
@@ -243,9 +267,9 @@ run:
         LDA p1_controller_rising
         AND #CONTROLLER_B
         BEQ no_b
-        LDA #<test_song_2
+        LDA #<audio_data::test_song_2
         PHA_SP
-        LDA #>test_song_2
+        LDA #>audio_data::test_song_2
         PHA_SP
         JSR Audio::PlaySFX0
         PLN_SP 2
@@ -270,30 +294,6 @@ run:
   .addr NMI     ;; Non-maskable interrupt (ie VBLANK)
   .addr RESET   ;; Processor turns on or reset button is pressed
   .word 0       ;; Other interrupts. Ignore for now
-
-.segment "PRG0" ;; Default bank-swapped PRG ROM at $8000.
-JMP RESET       ;; Entry point on program start
-
-palette:
-  .include "data/palette.asm"
-
-name_table:
-  .include "data/name_table.asm"
-
-attribute_table:
-  .include "data/attr_table.asm"
-
-sprites:
-  .include "data/sprites.asm"
-
-strings:
-  .include "data/strings.asm"
-
-note_table:
-  .include "data/notes_ntsc.asm"
-
-test_song:
-  .include "data/test_song.asm"
 
 .segment "CHR0" ; 8kb, always present
   .incbin "assets/mario.chr" ; test data to fill the chr bank

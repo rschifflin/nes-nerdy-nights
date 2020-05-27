@@ -55,6 +55,7 @@
   ;; A decoder is an audio stream with current progress and a decoding fsm
   .struct Decoder
     stream_head  .addr    ;; -> audio start
+;    volume_head  .addr    ;; -> volume start
     registers    .tag Registers
     spempo       .byte ;; tttt-tsss , 3 bits of speed and 5 bits of tempo
                        ;; Speed is 0-7, equal to (# of ticks per tock) - 1
@@ -64,14 +65,17 @@
                        ;; when the note length would cross a new tempo beat boundary.
     tick_counter .byte ;; Filled to Speed and decremented every tick. Produces a quarter of a beat on rollover.
     length       .byte ;; Indicates total note length
-    elapsed      .byte ;; Indicates current note playtime
+                       ;; TODO: rename note_length
+    elapsed      .byte ;; Indicates current note playtime. ;; Todo: axe
     remaining    .byte ;; Length-elapsed, indicates note left to play
+                       ;; TODO: rename note_hold
     instrument   .byte ;; Index into instrument table
-    volume       .byte ;; Lower 4 bits are channel volume 0-F. Initialized high to F
 
-    ; length counter? ;;
+  ;;volume Upper 4 bits are index into instrument pattern!
+    volume       .byte ;; Lower 4 bits are channel volume 0-F.
+                       ;; Initialized to 0F
+;    volume_hold  .byte ;; How many tocks before reading the volume stream again
+                       ;; Most significant bit also acts as a mute bit
     ;; loop counter?
-    ;; channel done?
-    ;; etc
   .endstruct
 .endscope

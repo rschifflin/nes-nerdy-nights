@@ -1,16 +1,25 @@
-;; Sound engine API
-.scope Audio
+;; Sound engine rom locations
+.scope audio_rom
   track_prio_list:
-    .addr audio::track_bgm ;; Lowest priority
-    .addr audio::track_sfx0
-    .addr audio::track_sfx1 ;; Highest priority
+    .addr audio_ram::track_bgm ;; Lowest priority
+    .addr audio_ram::track_sfx0
+    .addr audio_ram::track_sfx1 ;; Highest priority
   decoder_table:
   bgm_decoder_table:
-    .addr audio::decoder_0,audio::decoder_1,audio::decoder_2,audio::decoder_3
+    .addr audio_ram::decoder_0
+    .addr audio_ram::decoder_1
+    .addr audio_ram::decoder_2
+    .addr audio_ram::decoder_3
   sfx0_decoder_table:
-    .addr audio::decoder_4,audio::decoder_5,audio::decoder_6,audio::decoder_7
+    .addr audio_ram::decoder_4
+    .addr audio_ram::decoder_5
+    .addr audio_ram::decoder_6
+    .addr audio_ram::decoder_7
   sfx1_decoder_table:
-    .addr audio::decoder_8,audio::decoder_9,audio::decoder_A,audio::decoder_B
+    .addr audio_ram::decoder_8
+    .addr audio_ram::decoder_9
+    .addr audio_ram::decoder_A
+    .addr audio_ram::decoder_B
   channel_silence_list:
     .byte APU_ENV_SILENCE
     .byte APU_ENV_SILENCE
@@ -26,118 +35,109 @@
     .byte AUDIO::CHANNEL_SQ2
     .byte AUDIO::CHANNEL_TRI
     .byte AUDIO::CHANNEL_NOISE
-  opcode_vector_table:
-    ;; 0 = silence
-    ;; 1 = stop
-    .addr RunOpCodeSilence-1
-    .addr RunOpCodeStop-1
-    .addr RunOpCodeLength-1
-    .addr RunOpCodeLoop-1
-    ;; TODO:
-    ;;   2 = set_length(l)
-    ;;   3 = set_envelope(e)
-    ;;   4 = loop_once
-    ;;   5 = loop_n(n)
 
+.endscope
 
+;; Sound engine API
+.scope Audio
   .proc Init
       ;; Initialize audio engine
       ;; All channels initially disabled
       LDA #$00
-      STA audio::apu_flags_buffer
+      STA audio_ram::apu_flags_buffer
 
       ;; Set write cache to initial write values
       ;; SQ1 has normal env and special case sweep
       LDX #$00
       LDA #APU_ENV_SILENCE
-      STA audio::buffer_ch_cache_list,X
+      STA audio_ram::buffer_ch_cache_list,X
       STA AUDIO::APU_REGISTER_LIST,X
       INX
       LDA #%00001000 ;; needed to hear low notes
-      STA audio::buffer_ch_cache_list,X
+      STA audio_ram::buffer_ch_cache_list,X
       STA AUDIO::APU_REGISTER_LIST,X
       INX
       LDA #%00000000
-      STA audio::buffer_ch_cache_list,X
+      STA audio_ram::buffer_ch_cache_list,X
       STA AUDIO::APU_REGISTER_LIST,X
       INX
-      STA audio::buffer_ch_cache_list,X
+      STA audio_ram::buffer_ch_cache_list,X
       STA AUDIO::APU_REGISTER_LIST,X
       INX
 
       ;; SQ2 has normal env and special case sweep
       LDA #APU_ENV_SILENCE
-      STA audio::buffer_ch_cache_list,X
+      STA audio_ram::buffer_ch_cache_list,X
       STA AUDIO::APU_REGISTER_LIST,X
       INX
       LDA #%00001000 ;; needed to hear low notes
-      STA audio::buffer_ch_cache_list,X
+      STA audio_ram::buffer_ch_cache_list,X
       STA AUDIO::APU_REGISTER_LIST,X
       INX
       LDA #%00000000
-      STA audio::buffer_ch_cache_list,X
+      STA audio_ram::buffer_ch_cache_list,X
       STA AUDIO::APU_REGISTER_LIST,X
       INX
-      STA audio::buffer_ch_cache_list,X
+      STA audio_ram::buffer_ch_cache_list,X
       STA AUDIO::APU_REGISTER_LIST,X
       INX
 
       ;; TRI has tri env and no sweep
       LDA #APU_TRI_SILENCE
-      STA audio::buffer_ch_cache_list,X
+      STA audio_ram::buffer_ch_cache_list,X
       STA AUDIO::APU_REGISTER_LIST,X
       INX
       LDA #%00000000
-      STA audio::buffer_ch_cache_list,X
+      STA audio_ram::buffer_ch_cache_list,X
       STA AUDIO::APU_REGISTER_LIST,X
       INX
-      STA audio::buffer_ch_cache_list,X
+      STA audio_ram::buffer_ch_cache_list,X
       STA AUDIO::APU_REGISTER_LIST,X
       INX
-      STA audio::buffer_ch_cache_list,X
+      STA audio_ram::buffer_ch_cache_list,X
       STA AUDIO::APU_REGISTER_LIST,X
       INX
 
       ;; NOISE has normal env but no sweep
       LDA #APU_ENV_SILENCE
-      STA audio::buffer_ch_cache_list,X
+      STA audio_ram::buffer_ch_cache_list,X
       STA AUDIO::APU_REGISTER_LIST,X
       INX
       LDA #%00000000
-      STA audio::buffer_ch_cache_list,X
+      STA audio_ram::buffer_ch_cache_list,X
       STA AUDIO::APU_REGISTER_LIST,X
       INX
-      STA audio::buffer_ch_cache_list,X
+      STA audio_ram::buffer_ch_cache_list,X
       STA AUDIO::APU_REGISTER_LIST,X
       INX
-      STA audio::buffer_ch_cache_list,X
+      STA audio_ram::buffer_ch_cache_list,X
       STA AUDIO::APU_REGISTER_LIST,X
 
       ;; Set decoders for tracks
-      LDA #<bgm_decoder_table
-      STA audio::track_bgm + AUDIO::Track::decoders
-      LDA #>bgm_decoder_table
-      STA audio::track_bgm + AUDIO::Track::decoders+1
+      LDA #<audio_rom::bgm_decoder_table
+      STA audio_ram::track_bgm + AUDIO::Track::decoders
+      LDA #>audio_rom::bgm_decoder_table
+      STA audio_ram::track_bgm + AUDIO::Track::decoders+1
 
-      LDA #<sfx0_decoder_table
-      STA audio::track_sfx0 + AUDIO::Track::decoders
-      LDA #>sfx0_decoder_table
-      STA audio::track_sfx0 + AUDIO::Track::decoders+1
+      LDA #<audio_rom::sfx0_decoder_table
+      STA audio_ram::track_sfx0 + AUDIO::Track::decoders
+      LDA #>audio_rom::sfx0_decoder_table
+      STA audio_ram::track_sfx0 + AUDIO::Track::decoders+1
 
-      LDA #<sfx1_decoder_table
-      STA audio::track_sfx1 + AUDIO::Track::decoders
-      LDA #>sfx1_decoder_table
-      STA audio::track_sfx1 + AUDIO::Track::decoders+1
+      LDA #<audio_rom::sfx1_decoder_table
+      STA audio_ram::track_sfx1 + AUDIO::Track::decoders
+      LDA #>audio_rom::sfx1_decoder_table
+      STA audio_ram::track_sfx1 + AUDIO::Track::decoders+1
 
       ;; Initially disabled
       LDA #$FF
-      STA audio::disable
+      STA audio_ram::disable
       RTS
   .endproc
 
   .proc Enable
       LDA #$00
-      STA audio::disable
+      STA audio_ram::disable
       RTS
   .endproc
 
@@ -151,9 +151,9 @@
 
       ;; Plays an encoded audio stream on the BGM track
       ;; A holds audio byte
-      LDA #<audio::track_bgm
+      LDA #<audio_ram::track_bgm
       PHA_SP
-      LDA #>audio::track_bgm
+      LDA #>audio_ram::track_bgm
       PHA_SP
       JSR PlayTrack
       PLN_SP 2
@@ -169,9 +169,9 @@
       audio_addr_hi = SW_STACK-1
 
       ;; Plays an encoded audio stream on the sfx0 (lo prio) track
-      LDA #<audio::track_sfx0
+      LDA #<audio_ram::track_sfx0
       PHA_SP
-      LDA #>audio::track_sfx0
+      LDA #>audio_ram::track_sfx0
       PHA_SP
       JSR PlayTrack
       PLN_SP 2
@@ -187,9 +187,9 @@
       audio_addr_lo = SW_STACK-2
       audio_addr_hi = SW_STACK-1
 
-      LDA #<audio::track_sfx1
+      LDA #<audio_ram::track_sfx1
       PHA_SP
-      LDA #>audio::track_sfx1
+      LDA #>audio_ram::track_sfx1
       PHA_SP
       JSR PlayTrack
       PLN_SP 2
@@ -340,7 +340,7 @@
 
       LDX SP
       LDY channel_offset,X
-      LDA channel_silence_list,Y ;; Use channel offset to determine silence env type
+      LDA audio_rom::channel_silence_list,Y ;; Use channel offset to determine silence env type
       LDY #(AUDIO::Decoder::registers + AUDIO::Registers::env)
       STA (r0),Y ;; Write env
       LDA #%00001000 ;; Allow low notes
@@ -377,9 +377,9 @@
   ;; 0-byte stack: 0 args, 0 return
   ;; Clear the BGM track
   .proc StopBGM
-      LDA #<audio::track_bgm
+      LDA #<audio_ram::track_bgm
       PHA_SP
-      LDA #>audio::track_bgm
+      LDA #>audio_ram::track_bgm
       PHA_SP
       JSR StopTrack
       PLN_SP 2
@@ -390,9 +390,9 @@
   ;; 0-byte stack: 0 args, 0 return
   ;; Clear the SFX0 track (lo prio)
   .proc StopSFX0
-      LDA #<audio::track_sfx0
+      LDA #<audio_ram::track_sfx0
       PHA_SP
-      LDA #>audio::track_sfx0
+      LDA #>audio_ram::track_sfx0
       PHA_SP
       JSR StopTrack
       PLN_SP 2
@@ -403,9 +403,9 @@
   ;; 0-byte stack: 0 args, 0 return
   ;; Clear the SFX1 track (hi prio)
   .proc StopSFX1
-      LDA #<audio::track_sfx1
+      LDA #<audio_ram::track_sfx1
       PHA_SP
-      LDA #>audio::track_sfx1
+      LDA #>audio_ram::track_sfx1
       PHA_SP
       JSR StopTrack
       PLN_SP 2
@@ -448,13 +448,13 @@
       LDA r0
       STA r1
 
-      LDA audio::track_bgm + AUDIO::Track::channels_active
+      LDA audio_ram::track_bgm + AUDIO::Track::channels_active
       AND r0
       STA temp0
-      LDA audio::track_sfx0 + AUDIO::Track::channels_active
+      LDA audio_ram::track_sfx0 + AUDIO::Track::channels_active
       AND r0
       STA temp1
-      LDA audio::track_sfx1 + AUDIO::Track::channels_active
+      LDA audio_ram::track_sfx1 + AUDIO::Track::channels_active
       AND r0
       ASL A
       ASL r1
@@ -479,9 +479,9 @@
       ASL A
       TAX
 
-      LDA track_prio_list, X
+      LDA audio_rom::track_prio_list, X
       STA PLO
-      LDA track_prio_list+1, X
+      LDA audio_rom::track_prio_list+1, X
       STA PHI
     done:
       RTS
@@ -536,14 +536,14 @@
       TXA ;; Registers lo
     write:
       LDY r0
-      STA audio::buffer_ch_addr_list,Y
+      STA audio_ram::buffer_ch_addr_list,Y
       LDA PHI
-      STA audio::buffer_ch_addr_list+1,Y
+      STA audio_ram::buffer_ch_addr_list+1,Y
       RTS
   .endproc
 
   .proc PlayFrame
-      LDA audio::disable
+      LDA audio_ram::disable
       BNE done
       ;; Do while audio enabled
       ;; Tick
@@ -596,15 +596,15 @@
       LDA r0
       LDX $00
       STX r0
-      CMP audio::apu_flags_buffer
+      CMP audio_ram::apu_flags_buffer
       BEQ @after_cache_write
       ;; Find the rising edge flag bits here to bust their cache
       TAX
       STA r0
-      EOR audio::apu_flags_buffer
+      EOR audio_ram::apu_flags_buffer
       AND r0
       STA r0
-      STX audio::apu_flags_buffer
+      STX audio_ram::apu_flags_buffer
       STX APUFLAGS
     @after_cache_write:
       JSR PlayChannels ;; r0 contains the apu flags that are newly-rising, or 0 if the cache is unchanged
@@ -625,7 +625,7 @@
       AND #$01
       BEQ @skip
       LDA #AUDIO::NOTE_HI_CACHE_BUST ;; Chosen to never be a real value for note_hi
-      STA audio::buffer_ch_cache_list + AUDIO::Registers::note_hi,X
+      STA audio_ram::buffer_ch_cache_list + AUDIO::Registers::note_hi,X
     @skip:
       LSR r0
       BEQ @done ;; If no more are rising, head to loop
@@ -645,9 +645,9 @@
       ASL A ;; Addr list is word-sized, so double the channel index to get the channel addr
       TAX
 
-      LDA audio::buffer_ch_addr_list,X
+      LDA audio_ram::buffer_ch_addr_list,X
       STA PLO
-      LDA audio::buffer_ch_addr_list+1,X
+      LDA audio_ram::buffer_ch_addr_list+1,X
       STA PHI
       ORA PLO
       BEQ next ;; channel is not active when P is null
@@ -657,9 +657,9 @@
       TAX
 
       LDY r0 ;; Channel index
-      LDA Audio::channel_volume_mask_list, Y
+      LDA audio_rom::channel_volume_mask_list, Y
       STA r1
-      LDA audio::buffer_ch_cache_list,X ;; Last write for env for channel
+      LDA audio_ram::buffer_ch_cache_list,X ;; Last write for env for channel
       AND r1 ;; Mask against volume
       BNE init_inner_loop
       ;; When last write was 0...
@@ -671,15 +671,15 @@
       ;; And next write is not zero...
     @bust_note_hi_cache:
       LDA #AUDIO::NOTE_HI_CACHE_BUST ;; Chosen to never be a real value for note_hi
-      STA audio::buffer_ch_cache_list + AUDIO::Registers::note_hi,X
+      STA audio_ram::buffer_ch_cache_list + AUDIO::Registers::note_hi,X
     init_inner_loop:
       LDY #$00 ;; Index into register list
     inner_loop:
       ;; Only write if we differ from the cache
       LDA (PLO),Y
-      CMP audio::buffer_ch_cache_list, X
+      CMP audio_ram::buffer_ch_cache_list, X
       BEQ @ignore
-      STA audio::buffer_ch_cache_list, X
+      STA audio_ram::buffer_ch_cache_list, X
       STA AUDIO::APU_REGISTER_LIST, X
     @ignore:
       INX
@@ -701,9 +701,9 @@
   .proc Tick
       LDX #$00
     loop:
-      LDA track_prio_list,X
+      LDA audio_rom::track_prio_list,X
       STA PLO
-      LDA track_prio_list+1,X
+      LDA audio_rom::track_prio_list+1,X
       STA PHI
       TXA
       PHA
@@ -972,6 +972,20 @@
       RTS
   .endproc
 
+  ;; Special case- can't go in audio_rom because it references methods that won't appear until the Audio scope.
+  opcode_vector_table:
+    ;; 0 = silence
+    ;; 1 = stop
+    .addr Audio::RunOpCodeSilence-1
+    .addr Audio::RunOpCodeStop-1
+    .addr Audio::RunOpCodeLength-1
+    .addr Audio::RunOpCodeLoop-1
+    ;; TODO:
+    ;;   2 = set_length(l)
+    ;;   3 = set_envelope(e)
+    ;;   4 = loop_once
+    ;;   5 = loop_n(n)
+
   ;;;; RunOpCode
   ;; 6-byte stack; 5 args, 1 return
   ;; Looks up the opcode handler from the vector table
@@ -1022,7 +1036,7 @@
       LDY #(AUDIO::Decoder::registers + AUDIO::Registers::env)
       LDA channel_offset,X
       TAX
-      LDA Audio::channel_bitflag_list,X
+      LDA audio_rom::channel_bitflag_list,X
       CMP #AUDIO::CHANNEL_TRI
       BEQ @when_tri
     @when_non_tri:
@@ -1158,7 +1172,7 @@
 
   .proc Disable
       LDA #$01
-      STA audio::disable
+      STA audio_ram::disable
       RTS
   .endproc
 .endscope
