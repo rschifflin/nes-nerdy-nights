@@ -1232,6 +1232,51 @@
       decoder_hi = SW_STACK-2
       has_stopped = SW_STACK-1 ;; return val
 
+      ;; TODO: Just add more zp registers...
+      LDA r0
+      PHA
+      LDA r1
+      PHA
+
+      ;; Re-initialize volume hold
+      LDA #$00
+      LDY #AUDIO::Decoder::mute_x_hold_vol
+      STA (PLO),Y
+      ;; Re-initialize volume + instrument
+      LDA #$0F
+      LDY #AUDIO::Decoder::instr_x_volume
+      STA (PLO),Y
+
+      ;; Reset and write back volume_head
+      LDX SP
+      LDA audio_lo,X
+      STA r0
+      LDA audio_hi,X
+      STA r1
+
+      LDA channel_offset,X
+      ASL A
+      CLC
+      ADC #AUDIO::Stream::vol0
+      TAY
+      LDA (r0),Y
+      TAX
+      INY
+      LDA (r0),Y
+      STX r0
+      STA r1
+      LDY #AUDIO::Decoder::volume_head
+      LDA r0
+      STA (PLO),Y
+      INY
+      LDA r1
+      STA (PLO),Y
+
+      PLA
+      STA r1
+      PLA
+      STA r0
+
       ;; Reset stream_head
       LDX SP
       LDA audio_lo,X

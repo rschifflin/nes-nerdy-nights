@@ -196,12 +196,11 @@
     "We can play a loop forever"))
 
 ;; Test 15-c
-;(asm-test
-;  (name
-;    "Decode loop pt3")
-;  (description
-;    "When looping, the volume stream also loops back to the start"))
-
+(asm-test
+  (name
+    "Decode loop pt3")
+  (description
+    "When looping, the volume stream also loops back to the start"))
 
 ;; Test 16-a
 (asm-test

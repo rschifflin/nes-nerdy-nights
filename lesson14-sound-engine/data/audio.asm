@@ -1,6 +1,6 @@
 .scope audio_data
   ignore_volume:
-    .byte AUDIO::VOLUME_LOOP_FOREVER
+    .byte AUDIO::VOLUME_HOLD_FOREVER
 
   test_song_1:
     .byte %00000011 ;; Just sq1 and sq2
@@ -124,7 +124,7 @@
   test_song_2_volume_stream:
     .byte $02, $06, $0A, $0F
     .byte $0F, $0A, $06, $02
-    .byte $0F, AUDIO::VOLUME_LOOP_FOREVER
+    .byte $0F, AUDIO::VOLUME_HOLD_FOREVER
 
   test_song_stop:
     .byte AUDIO::OP_CODES::STOP

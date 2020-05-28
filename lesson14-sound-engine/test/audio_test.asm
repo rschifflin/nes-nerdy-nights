@@ -1106,7 +1106,7 @@ note_table:
     .addr stream_ignore
     .addr stream_ignore
 
-    .addr stream_ignore
+    .addr stream_volume
     .addr stream_ignore
     .addr stream_ignore
     .addr stream_ignore
@@ -1117,8 +1117,12 @@ note_table:
     .byte $3f ;; C octave 5
     .byte $17 ;; G# octave 1
     .byte AUDIO::OP_CODES::LOOP
+  stream_volume:
+    .byte $0A
+    .byte $0B
+    .byte AUDIO::VOLUME_HOLD_FOREVER
   stream_ignore:
-    .byte $FF
+    .byte $80
   stream_instrument:
     .byte $0F
 
@@ -1170,6 +1174,29 @@ note_table:
     STA TEST_ACTUAL
     LDA audio_ram::decoder_0 + AUDIO::Decoder::registers + AUDIO::Registers::note_hi
     STA TEST_ACTUAL+1
+
+    SHOW
+    INC_TEST_NO
+
+    .repeat 12 ;; cycle 2 more times to wrap to the start
+      JSR Audio::DecodeStream
+    .endrepeat
+
+    LDA #<NOTE_B_FLAT_1
+    STA TEST_EXPECTED ;; Next note_lo
+    LDA #>NOTE_B_FLAT_1
+    STA TEST_EXPECTED+1 ;; Next note_hi
+    LDA #$0A
+    STA TEST_EXPECTED+2 ;; Current volume should be reset
+
+    LDA audio_ram::decoder_0 + AUDIO::Decoder::registers + AUDIO::Registers::note_lo
+    STA TEST_ACTUAL
+    LDA audio_ram::decoder_0 + AUDIO::Decoder::registers + AUDIO::Registers::note_hi
+    STA TEST_ACTUAL+1
+
+    LDA audio_ram::decoder_0 + AUDIO::Decoder::instr_x_volume
+    AND #%00001111
+    STA TEST_ACTUAL+2
 
     SHOW
 
