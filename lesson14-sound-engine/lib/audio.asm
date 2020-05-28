@@ -900,7 +900,7 @@
       STA (PLO),Y
 
       ;; Clear mute on new note
-      LDY #AUDIO::Decoder::instr_x_volume
+      LDY #AUDIO::Decoder::mute_x_hold_vol
       LDA (PLO),Y
       AND #%01111111
       STA (PLO),Y
@@ -923,10 +923,12 @@
 
       .scope Volume
           ;; TODO: Apply volume envelope from instrument
-          LDY #AUDIO::Decoder::instr_x_volume
+          LDY #AUDIO::Decoder::mute_x_hold_vol
           LDA (PLO),Y
           BMI done ;; muted by silence opcode, skip the volume control
-          AND #%01111111
+          LDY #AUDIO::Decoder::instr_x_volume
+          LDA (PLO), Y
+          AND #%00001111
           STA r0
           LDY #(AUDIO::Decoder::registers + AUDIO::Registers::env)
           LDA (PLO),Y
@@ -1001,7 +1003,8 @@
 
   ;;;; RunOpCodeSilence
   ;; 5-byte stack: 5 args, 0 return
-  ;; Writes a 1 to the high bit of volume, indicating muted
+  ;; Writes a 1 to the high bit of mute_x_hold_vol, indicating muted
+  ;; Writes volume 0 to the env register
   ;; P is a pointer to the decoder
   ;; r0/r1 contain a pointer to the stream head
   .proc RunOpCodeSilence
@@ -1015,7 +1018,7 @@
 
       ;; Write zero volume bit
       LDA #%10000000
-      LDY #AUDIO::Decoder::instr_x_volume
+      LDY #AUDIO::Decoder::mute_x_hold_vol
       ORA (PLO),Y
       STA (PLO),Y
 
