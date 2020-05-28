@@ -57,13 +57,16 @@
     vol1     .addr ;; -> [encoded volume stream bytes...]
     vol2     .addr ;; -> [encoded volume stream bytes...]
     vol3     .addr ;; -> [encoded volume stream bytes...]
+
+    instrument0 .addr ;; -> [instrument pattern...]
+    ;; All future instruments follow from here
   .endstruct
 
   ;; A decoder is an audio stream with current progress and a decoding fsm
   .struct Decoder
     stream_head  .addr    ;; -> audio start
     volume_head  .addr    ;; -> volume start
-    instrument_head .addr ;; -> instrument start
+    instrument   .addr    ;; -> instrument start
     registers    .tag Registers
     speed_x_tick    .byte ;; ssss-tttt , 4 bits of speed, and a 4 bit tick counter
                           ;; Speed is 0-7, equal to (# of ticks per tock) - 1

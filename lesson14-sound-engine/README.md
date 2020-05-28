@@ -80,8 +80,8 @@ The instrument pattern table represents, for each instrument, how each frame of 
 Individual patterns are of variable length and don't share a common offset. The audio header instead contains a list of pointers to where each pattern begins.
 Patterns do not have a header. Since volume information only takes up 4 bits, the other 4 bits are used for next, stop and loop information.
 A pattern byte has the following format: nnnn-vvvv, where n is the byte offset from base of the next element of the pattern, and v is the volume at this frame.
-So a pattern of F-F-F-E-9-3-2-1 meant to hold the 1 until finished would look like:
-  [$1F,$2F,$3F,$4E,$59,$63,$72,$71] - note the high nibble of the last byte will loop on itself
+So a pattern of A-A-A-E-9-3-2-1 meant to hold the 1 until finished would look like:
+  [$1A,$2A,$3A,$4E,$59,$63,$72,$71] - note the high nibble of the last byte will loop on itself
 A pattern of 9-A-B-A meant to repeat for however long the note is held would look like:
   [$19,$2A,$3B,$0A]
 A pattern of 1-6-F-A-B meant to attack to F before sustaining in a loop of A-B would look like:

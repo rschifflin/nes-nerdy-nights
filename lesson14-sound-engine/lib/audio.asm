@@ -358,6 +358,19 @@
       TXA
       STA (r0),Y ;; lo-> volume_head
 
+      ;; Set instrument
+      LDY #AUDIO::Stream::instrument0 ;; base of volume addresses
+      LDA (PLO),Y ;; lo-> instrument0
+      TAX
+      INY
+      LDA (PLO),Y ;; hi-> instrument0
+      LDY #AUDIO::Decoder::instrument
+      INY
+      STA (r0),Y ;; hi-> instrument
+      DEY
+      TXA
+      STA (r0),Y ;; lo-> instrument
+
       LDX SP
       LDY channel_offset,X
       LDA audio_rom::channel_silence_list,Y ;; Use channel offset to determine silence env type
@@ -957,12 +970,37 @@
       LDA r1
       STA (PLO),Y
 
-      JSR DecodeStreamVolume ;; preserves P, A holds previous mute_x_hold_vol
+      JSR DecodeStreamVolume ;; preserves P
       .scope Volume
           ;; DecodeStreamVolume set A to the prev mute_x_hold_vol, which we now check for the mute bit
+          LDY #AUDIO::Decoder::mute_x_hold_vol
+          LDA (PLO),Y
           BMI done ;; muted by silence opcode, skip the volume control
+
+          LDY #AUDIO::Decoder::instrument
+          LDA (PLO), Y
+          STA r0
+          INY
+          LDA (PLO), Y
+          STA r1
           LDY #AUDIO::Decoder::instr_x_volume
           LDA (PLO), Y
+          .repeat 4
+            LSR A
+          .endrepeat
+          TAY
+          LDA (r0),Y ;; New instr idx + instr volume
+          ;; TODO: Mix volume from channel
+          TAX
+          AND #%11110000
+          STA r0 ;; r0 = new instr
+          LDY #AUDIO::Decoder::instr_x_volume
+          LDA (PLO),Y
+          AND #%00001111
+          ORA r0
+          STA (PLO),Y
+
+          TXA
           AND #%00001111
           STA r0
           LDY #(AUDIO::Decoder::registers + AUDIO::Registers::env)
@@ -991,12 +1029,10 @@
   ;; 0-byte stack; 0 args, 0 return
   ;; Sets the value of the volume and the hold_volume counter based on state and stream position
   ;; P points to the decoder, does not get clobbered
-  ;; A returns the previous value of mute_x_hold_vol for convenience
   .proc DecodeStreamVolume
       ;; Lookup volume
       LDY #AUDIO::Decoder::mute_x_hold_vol
       LDA (PLO),Y
-      PHA
       TAX
       AND #%01111111
       BEQ when_hold_zero
@@ -1007,7 +1043,6 @@
       TXA
       SEC
       SBC #$01
-      LDY #AUDIO::Decoder::mute_x_hold_vol
       STA (PLO),Y
       JMP done
 
@@ -1047,16 +1082,15 @@
 
       ;; Read byte is a hold instruction
     parse_hold:
-      AND #%01111111 ;; Clear hi bit
-      SEC
-      SBC #$01 ;; 0-offset, so length 1 -> value 0
+      ASL A ;; Clear high bit, set the carry
+      SBC #$02 ;; Subtract 1, technically 2 since we've doubled A
+      LSR A
       STA r0
       LDY #AUDIO::Decoder::mute_x_hold_vol
       LDA (PLO),Y
       ORA r0
       STA (PLO),Y
     done:
-      PLA
       RTS
   .endproc
 

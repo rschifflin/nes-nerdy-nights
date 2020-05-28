@@ -80,6 +80,14 @@ clear_stack:
   STX TEST_SHOW
   PLA
 .endmacro
+.macro FLAG
+  PHA
+  LDA #$03
+  STA TEST_SHOW
+  LDA #$00
+  STX TEST_SHOW
+  PLA
+.endmacro
 
 ;; Helpful libraries go here
 .include "../lib/core.asm"
