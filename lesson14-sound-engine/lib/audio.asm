@@ -316,10 +316,12 @@
       LDA decoder_hi,X
       STA r1
 
-      LDY #AUDIO::Stream::spempo
+      LDY #AUDIO::Stream::speed
       LDA (PLO),Y
-
-      LDY #AUDIO::Decoder::spempo
+      .repeat 4
+        ASL A ;; Load speed into high 4 bits of speed_x_tick
+      .endrepeat
+      LDY #AUDIO::Decoder::speed_x_tick
       STA (r0),Y
 
       LDA channel_offset,X
@@ -352,23 +354,17 @@
       LDY #(AUDIO::Decoder::registers + AUDIO::Registers::note_hi)
       STA (r0),Y ;; Write note_hi
 
-      LDA #$00
-      LDY #AUDIO::Decoder::tick_counter
-      STA (r0),Y ;; Write tick_count
-      LDY #AUDIO::Decoder::remaining
-      STA (r0),Y ;; Write remaininig
-      LDY #AUDIO::Decoder::instrument
-      STA (r0),Y ;; Write instrument
-
       LDA #$01
       LDY #AUDIO::Decoder::length
       STA (r0),Y ;; Write length
-      LDY #AUDIO::Decoder::elapsed
-      STA (r0),Y ;; Write elapsed
+
+      LDA #$00
+      LDY #AUDIO::Decoder::remaining
+      STA (r0),Y ;; Write remaininig
 
       LDA #$0F
-      LDY #AUDIO::Decoder::volume
-      STA (r0),Y ;; Write length
+      LDY #AUDIO::Decoder::instr_x_volume
+      STA (r0),Y ;; Write instrument index + volume
 
       RTS
   .endproc
@@ -843,19 +839,22 @@
 
       ;; Tick before anything
       ;; Count down the tick counter, execute and refill on zero
-      LDY #AUDIO::Decoder::tick_counter
+      LDY #AUDIO::Decoder::speed_x_tick
       LDA (PLO),Y
+      TAX
+      AND #%00001111 ;; Just the tick counter
       BEQ on_tock
-      SEC
-      SBC #$01
+      DEX
+      TXA
       STA (PLO),Y
       RTS
     on_tock:
       ;; Refill tick counter to speed
-      LDY #AUDIO::Decoder::spempo
-      LDA (PLO),Y
-      AND #AUDIO::SPEED_MASK
-      LDY #AUDIO::Decoder::tick_counter
+      TXA
+      .repeat 4
+        LSR A
+      .endrepeat
+      ORA (PLO),Y ;; We know the low 4 bits are 0, so OR works cleanly
       STA (PLO),Y
 
       ;; Fetch stream head
@@ -901,7 +900,7 @@
       STA (PLO),Y
 
       ;; Clear mute on new note
-      LDY #AUDIO::Decoder::volume
+      LDY #AUDIO::Decoder::instr_x_volume
       LDA (PLO),Y
       AND #%01111111
       STA (PLO),Y
@@ -910,9 +909,6 @@
       LDY #(AUDIO::Decoder::length)
       LDA (PLO),Y
       LDY #(AUDIO::Decoder::remaining)
-      STA (PLO),Y
-      LDA #$00
-      LDY #(AUDIO::Decoder::elapsed)
       STA (PLO),Y
 
     play_note:
@@ -927,7 +923,7 @@
 
       .scope Volume
           ;; TODO: Apply volume envelope from instrument
-          LDY #AUDIO::Decoder::volume
+          LDY #AUDIO::Decoder::instr_x_volume
           LDA (PLO),Y
           BMI done ;; muted by silence opcode, skip the volume control
           AND #%01111111
@@ -945,14 +941,6 @@
       LDA (PLO),Y
       TAX
       DEX
-      TXA
-      STA (PLO),Y
-
-      ;; Increment elapsed
-      LDY #AUDIO::Decoder::elapsed
-      LDA (PLO),Y
-      TAX
-      INX
       TXA
       STA (PLO),Y
 
@@ -1027,7 +1015,7 @@
 
       ;; Write zero volume bit
       LDA #%10000000
-      LDY #AUDIO::Decoder::volume
+      LDY #AUDIO::Decoder::instr_x_volume
       ORA (PLO),Y
       STA (PLO),Y
 
@@ -1122,8 +1110,9 @@
       LDA has_stopped,X
       ORA #%10000000
       STA has_stopped,X
-      LDA #$00
-      LDY #AUDIO::Decoder::tick_counter
+      LDY #AUDIO::Decoder::speed_x_tick
+      LDA #%11110000
+      AND (PLO),Y
       STA (PLO),Y
       RTS
   .endproc

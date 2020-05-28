@@ -39,8 +39,9 @@
   .endstruct
 
   .struct Stream
+    ;;TODO: size      .word ;; header size in bytes
     channels .byte ;; lower nybble = mask of channels used
-    spempo   .byte ;; Speed | Tempo
+    speed   .byte ;; Speed- 5 = 150BPM
     ;; Instruments?
     ;; Patterns?
     ;; Frames?
@@ -50,29 +51,33 @@
     ch1      .addr ;; -> [encoded audio stream bytes...]
     ch2      .addr ;; -> [encoded audio stream bytes...]
     ch3      .addr ;; -> [encoded audio stream bytes...]
+
+    vol0     .addr ;; -> [encoded volume stream bytes...]
+    vol1     .addr ;; -> [encoded volume stream bytes...]
+    vol2     .addr ;; -> [encoded volume stream bytes...]
+    vol3     .addr ;; -> [encoded volume stream bytes...]
   .endstruct
 
   ;; A decoder is an audio stream with current progress and a decoding fsm
   .struct Decoder
     stream_head  .addr    ;; -> audio start
     volume_head  .addr    ;; -> volume start
+    instrument_head .addr ;; -> instrument start
     registers    .tag Registers
-    speed_tick   .byte ;; ssss-tttt , 4 bits of speed, and a 4 bit tick counter
-                       ;; Speed is 0-7, equal to (# of ticks per tock) - 1
-                       ;; The Tick counter is filled to Speed and decremented every tick.
-                       ;; Notes are produced on counter rollover (a "tock"). 4 tocks make a beat when measuring BPM.
-    length       .byte ;; Indicates total note length
-                       ;; TODO: rename note_length
-    elapsed      .byte ;; Indicates current note playtime. ;; Todo: axe
-    remaining    .byte ;; Length-elapsed, indicates note left to play
-                       ;; TODO: rename note_hold
-    instrument   .byte ;; Index into instrument table
+    speed_x_tick    .byte ;; ssss-tttt , 4 bits of speed, and a 4 bit tick counter
+                          ;; Speed is 0-7, equal to (# of ticks per tock) - 1
+                          ;; The Tick counter is filled to Speed and decremented every tick.
+                          ;; Notes are produced on counter rollover (a "tock"). 4 tocks make a beat when measuring BPM.
+    length          .byte ;; Indicates total note length
+                          ;; TODO: rename note_length
+    remaining       .byte ;; Length-elapsed, indicates note left to play
+                          ;; TODO: rename note_hold
 
-  ;;volume Upper 4 bits are index into instrument pattern!
-    volume       .byte ;; Lower 4 bits are channel volume 0-F.
-                       ;; Initialized to 0F
-;    volume_hold  .byte ;; How many tocks before reading the volume stream again
-                       ;; Most significant bit also acts as a mute bit
-    ;; loop counter?
+    instr_x_volume  .byte ;; Upper 4 bits are offset into instrument head
+                          ;; Lower 4 bits are channel volume 0-F.
+                          ;; Initialized to 0F
+    mute_x_hold_vol .byte ;; Upper bit is whether or not the stream is muted.
+                          ;; Lower 7 bits are how many tocks to wait before reading the volume stream again
+    ;; Just enough space for a loop counter if we ever want to add one
   .endstruct
 .endscope

@@ -10,6 +10,44 @@
 note_table:
   .include "../data/notes_ntsc.asm"
 
+.scope streams
+  stream0:
+    .byte %00001010 ;; Channels Sq2 and Noise
+    .byte %00000101 ;; Speed 5
+    ;; Four note streams
+    .addr stream0_ch0
+    .addr stream0_ch1
+    .addr stream0_ch2
+    .addr stream0_ch3
+    ;; Four volume streams
+    .addr stream0_vol_ch
+    .addr stream0_vol_ch
+    .addr stream0_vol_ch
+    .addr stream0_vol_ch
+    ;; Instrument patterns, omit for now
+    ;; .addr stream0_instrument0
+  stream0_ch0:
+    .repeat 16
+      .byte $AA
+    .endrepeat
+  stream0_ch1:
+    .repeat 16
+      .byte $BB
+    .endrepeat
+  stream0_ch2:
+    .repeat 16
+      .byte $CC
+    .endrepeat
+  stream0_ch3:
+    .repeat 16
+      .byte $DD
+    .endrepeat
+  stream0_vol_ch:
+    .byte $FF ;; Hold default volume forever
+  stream0_instrument0:
+    .byte $0F ;; Sustain loop volume high
+.endscope
+
 .proc TestInit
     JMP test
   expected:
@@ -54,84 +92,57 @@ note_table:
 .endproc
 
 .proc TestPlayBGM
-    JMP test
-  audio_stream:
-    .byte %00001010 ;; Channels Sq2 and Noise
-    .byte $E0 ;; No idea
-    ;; In the future:
-    ;; .repeat n .byte instruments?
-    ;; .repeat n .byte patterns?
-    ;; .repeat n .byte frames?
-    .addr stream_ch0
-    .addr stream_ch1
-    .addr stream_ch2
-    .addr stream_ch3
-  stream_ch0:
-    .repeat 16
-      .byte $AA
-    .endrepeat
-  stream_ch1:
-    .repeat 16
-      .byte $BB
-    .endrepeat
-  stream_ch2:
-    .repeat 16
-      .byte $CC
-    .endrepeat
-  stream_ch3:
-    .repeat 16
-      .byte $DD
-    .endrepeat
+  JMP test
 
   expected:
     ;; BGM track
     .byte %00001010 ;; Channel mask
-    .addr audio_stream ;; ptr to audio stream
+    .addr streams::stream0 ;; ptr to audio stream
     .addr audio_rom::bgm_decoder_table ;; ptr to decoders
 
     ;; Decoder 0
-    .addr stream_ch0   ;; stream head
+    .addr streams::stream0_ch0    ;; stream head
+    .addr $0000 ;;TODO: .addr streams::stream0_vol_ch ;; volume head
+    .addr $0000 ;;TODO: .addr streams::stream0_instrument0 ;; instrument head
     .byte $30, $08, $00, $00 ;; Default silent registers
-    .byte $E0 ;; Placeholder for speed/tempo
-    .byte $00 ;; Tick counter
+    .byte $50 ;; 6 ticks per tock, tick counter begins at 0
     .byte $01 ;; Length counter
-    .byte $01 ;; Elapsed counter
     .byte $00 ;; Remaining counter
-    .byte $00 ;; Instrument index
-    .byte $0F ;; Volume
+    .byte $0F ;; Instrument index + volume
+    .byte $00 ;; Mute + Hold volume
 
     ;; Decoder 1
-    .addr stream_ch1   ;; stream head
+    .addr streams::stream0_ch1    ;; stream head
+    .addr $0000 ;;TODO: .addr streams::stream0_vol_ch ;; volume head
+    .addr $0000 ;;TODO: .addr streams::stream0_instrument0 ;; instrument head
     .byte $30, $08, $00, $00 ;; Default silent registers
-    .byte $E0 ;; Placeholder for speed/tempo
-    .byte $00 ;; Tick counter
+    .byte $50 ;; 6 ticks per tock, tick counter begins at 0
     .byte $01 ;; Length counter
-    .byte $01 ;; Elapsed counter
     .byte $00 ;; Remaining counter
-    .byte $00 ;; Instrument index
-    .byte $0F ;; Volume
+    .byte $0F ;; Instrument index + volume
+    .byte $00 ;; Mute + Hold volume
 
     ;; Decoder 2
-    .addr stream_ch2   ;; stream head
-    .byte $80, $08, $00, $00 ;; Default silent registers (Note, this is a triangle ch)
-    .byte $E0 ;; Placeholder for speed/tempo
-    .byte $00 ;; Tick counter
+    .addr streams::stream0_ch2    ;; stream head
+    .addr $0000 ;;TODO: .addr streams::stream0_vol_ch ;; volume head
+    .addr $0000 ;;TODO: .addr streams::stream0_instrument0 ;; instrument head
+    .byte $80, $08, $00, $00 ;; Default silent registers
+    .byte $50 ;; 6 ticks per tock, tick counter begins at 0
     .byte $01 ;; Length counter
-    .byte $01 ;; Elapsed counter
     .byte $00 ;; Remaining counter
-    .byte $00 ;; Instrument index
-    .byte $0F ;; Volume
+    .byte $0F ;; Instrument index + volume
+    .byte $00 ;; Mute + Hold volume
 
     ;; Decoder 3
-    .addr stream_ch3   ;; stream head
-    .byte $30, $08, $00, $00 ;; Default silent registers
-    .byte $E0 ;; Placeholder for speed/tempo
-    .byte $00 ;; Tick counter
+    .addr streams::stream0_ch3    ;; stream head
+    .addr $0000 ;;TODO: .addr streams::stream0_vol_ch ;; volume head
+    .addr $0000 ;;TODO: .addr streams::stream0_instrument0 ;; instrument head
+    .byte $30, $00, $00, $00 ;; Default silent registers
+    .byte $50 ;; 6 ticks per tock, tick counter begins at 0
     .byte $01 ;; Length counter
-    .byte $01 ;; Elapsed counter
     .byte $00 ;; Remaining counter
-    .byte $00 ;; Instrument index
-    .byte $0F ;; Volume
+    .byte $0F ;; Instrument index + volume
+    .byte $00 ;; Mute + Hold volume
 
   test:
     LDX #$00
@@ -143,9 +154,9 @@ note_table:
     BNE loop_expected
 
     JSR Audio::Init
-    LDA #<audio_stream
+    LDA #<streams::stream0
     PHA_SP
-    LDA #>audio_stream
+    LDA #>streams::stream0
     PHA_SP
     JSR Audio::PlayBGM
     PLN_SP 2
@@ -177,84 +188,55 @@ note_table:
 
 .proc TestPlaySFX0
     JMP test
-  audio_stream:
-    .byte %00000100 ;; Just channel Tri
-    .byte $FA ;; A placeholder speed/tempo
-    ;; In the future:
-    ;; .repeat n .byte instruments?
-    ;; .repeat n .byte patterns?
-    ;; .repeat n .byte frames?
-    .addr stream_ch0
-    .addr stream_ch1
-    .addr stream_ch2
-    .addr stream_ch3
-  stream_ch0:
-    .repeat 16
-      .byte $AA
-    .endrepeat
-  stream_ch1:
-    .repeat 16
-      .byte $BB
-    .endrepeat
-  stream_ch2:
-    .repeat 16
-      .byte $CC
-    .endrepeat
-  stream_ch3:
-    .repeat 16
-      .byte $DD
-    .endrepeat
-
   expected:
     ;; SFX0 track
-    .byte %00000100 ;; Channel mask
-    .addr audio_stream ;; ptr to audio stream
+    .byte %00001010 ;; Channel mask
+    .addr streams::stream0 ;; ptr to audio stream
     .addr audio_rom::sfx0_decoder_table ;; ptr to decoder
 
     ;; Decoder 4
-    .addr stream_ch0   ;; stream head
+    .addr streams::stream0_ch0    ;; stream head
+    .addr $0000 ;;TODO: .addr streams::stream0_vol_ch ;; volume head
+    .addr $0000 ;;TODO: .addr streams::stream0_instrument0 ;; instrument head
     .byte $30, $08, $00, $00 ;; Default silent registers
-    .byte $FA ;; Placeholder for speed/tempo
-    .byte $00 ;; Tick counter
+    .byte $50 ;; 6 ticks per tock, tick counter begins at 0
     .byte $01 ;; Length counter
-    .byte $01 ;; Elapsed counter
     .byte $00 ;; Remaining counter
-    .byte $00 ;; Instrument index
-    .byte $0F ;; Volume
+    .byte $0F ;; Instrument index + volume
+    .byte $00 ;; Mute + Hold volume
 
     ;; Decoder 5
-    .addr stream_ch1   ;; stream head
+    .addr streams::stream0_ch1    ;; stream head
+    .addr $0000 ;;TODO: .addr streams::stream0_vol_ch ;; volume head
+    .addr $0000 ;;TODO: .addr streams::stream0_instrument0 ;; instrument head
     .byte $30, $08, $00, $00 ;; Default silent registers
-    .byte $FA ;; Placeholder for speed/tempo
-    .byte $00 ;; Tick counter
+    .byte $50 ;; 6 ticks per tock, tick counter begins at 0
     .byte $01 ;; Length counter
-    .byte $01 ;; Elapsed counter
     .byte $00 ;; Remaining counter
-    .byte $00 ;; Instrument index
-    .byte $0F ;; Volume
+    .byte $0F ;; Instrument index + volume
+    .byte $00 ;; Mute + Hold volume
 
     ;; Decoder 6
-    .addr stream_ch2   ;; stream head
-    .byte $80, $08, $00, $00 ;; Default silent registers (Note, this is a triangle ch)
-    .byte $FA ;; Placeholder for speed/tempo
-    .byte $00 ;; Tick counter
+    .addr streams::stream0_ch2    ;; stream head
+    .addr $0000 ;;TODO: .addr streams::stream0_vol_ch ;; volume head
+    .addr $0000 ;;TODO: .addr streams::stream0_instrument0 ;; instrument head
+    .byte $80, $08, $00, $00 ;; Default silent registers
+    .byte $50 ;; 6 ticks per tock, tick counter begins at 0
     .byte $01 ;; Length counter
-    .byte $01 ;; Elapsed counter
     .byte $00 ;; Remaining counter
-    .byte $00 ;; Instrument index
-    .byte $0F ;; Volume
+    .byte $0F ;; Instrument index + volume
+    .byte $00 ;; Mute + Hold volume
 
     ;; Decoder 7
-    .addr stream_ch3   ;; stream head
+    .addr streams::stream0_ch3    ;; stream head
+    .addr $0000 ;;TODO: .addr streams::stream0_vol_ch ;; volume head
+    .addr $0000 ;;TODO: .addr streams::stream0_instrument0 ;; instrument head
     .byte $30, $08, $00, $00 ;; Default silent registers
-    .byte $FA ;; Placeholder for speed/tempo
-    .byte $00 ;; Tick counter
+    .byte $50 ;; 6 ticks per tock, tick counter begins at 0
     .byte $01 ;; Length counter
-    .byte $01 ;; Elapsed counter
     .byte $00 ;; Remaining counter
-    .byte $00 ;; Instrument index
-    .byte $0F ;; Volume
-
+    .byte $0F ;; Instrument index + volume
+    .byte $00 ;; Mute + Hold volume
   test:
     LDX #$00
   loop_expected:
@@ -265,9 +247,9 @@ note_table:
     BNE loop_expected
 
     JSR Audio::Init
-    LDA #<audio_stream
+    LDA #<streams::stream0
     PHA_SP
-    LDA #>audio_stream
+    LDA #>streams::stream0
     PHA_SP
     JSR Audio::PlaySFX0
     PLN_SP 2
@@ -299,83 +281,55 @@ note_table:
 
 .proc TestPlaySFX1
     JMP test
-  audio_stream:
-    .byte %00001111 ;; All channels
-    .byte $14 ;; A placeholder speed/tempo
-    ;; In the future:
-    ;; .repeat n .byte instruments?
-    ;; .repeat n .byte patterns?
-    ;; .repeat n .byte frames?
-    .addr stream_ch0
-    .addr stream_ch1
-    .addr stream_ch2
-    .addr stream_ch3
-  stream_ch0:
-    .repeat 16
-      .byte $AA
-    .endrepeat
-  stream_ch1:
-    .repeat 16
-      .byte $BB
-    .endrepeat
-  stream_ch2:
-    .repeat 16
-      .byte $CC
-    .endrepeat
-  stream_ch3:
-    .repeat 16
-      .byte $DD
-    .endrepeat
-
   expected:
     ;; SFX1 track (11 bytes):
-    .byte %00001111 ;; Channel mask
-    .addr audio_stream ;; ptr to audio stream
+    .byte %00001010 ;; Channel mask
+    .addr streams::stream0 ;; ptr to audio stream
     .addr audio_rom::sfx1_decoder_table ;; ptr to decoder
 
     ;; Decoder 8
-    .addr stream_ch0   ;; stream head
+    .addr streams::stream0_ch0    ;; stream head
+    .addr $0000 ;;TODO: .addr streams::stream0_vol_ch ;; volume head
+    .addr $0000 ;;TODO: .addr streams::stream0_instrument0 ;; instrument head
     .byte $30, $08, $00, $00 ;; Default silent registers
-    .byte $14 ;; Placeholder for speed/tempo
-    .byte $00 ;; Tick counter
+    .byte $50 ;; 6 ticks per tock, tick counter begins at 0
     .byte $01 ;; Length counter
-    .byte $01 ;; Elapsed counter
     .byte $00 ;; Remaining counter
-    .byte $00 ;; Instrument index
-    .byte $0F ;; Volume
+    .byte $0F ;; Instrument index + volume
+    .byte $00 ;; Mute + Hold volume
 
     ;; Decoder 9
-    .addr stream_ch1   ;; stream head
+    .addr streams::stream0_ch1    ;; stream head
+    .addr $0000 ;;TODO: .addr streams::stream0_vol_ch ;; volume head
+    .addr $0000 ;;TODO: .addr streams::stream0_instrument0 ;; instrument head
     .byte $30, $08, $00, $00 ;; Default silent registers
-    .byte $14 ;; Placeholder for speed/tempo
-    .byte $00 ;; Tick counter
+    .byte $50 ;; 6 ticks per tock, tick counter begins at 0
     .byte $01 ;; Length counter
-    .byte $01 ;; Elapsed counter
     .byte $00 ;; Remaining counter
-    .byte $00 ;; Instrument index
-    .byte $0F ;; Volume
+    .byte $0F ;; Instrument index + volume
+    .byte $00 ;; Mute + Hold volume
 
     ;; Decoder A
-    .addr stream_ch2   ;; stream head
-    .byte $80, $08, $00, $00 ;; Default silent registers (Note, this is a triangle ch)
-    .byte $14 ;; Placeholder for speed/tempo
-    .byte $00 ;; Tick counter
+    .addr streams::stream0_ch2    ;; stream head
+    .addr $0000 ;;TODO: .addr streams::stream0_vol_ch ;; volume head
+    .addr $0000 ;;TODO: .addr streams::stream0_instrument0 ;; instrument head
+    .byte $80, $08, $00, $00 ;; Default silent registers
+    .byte $50 ;; 6 ticks per tock, tick counter begins at 0
     .byte $01 ;; Length counter
-    .byte $01 ;; Elapsed counter
     .byte $00 ;; Remaining counter
-    .byte $00 ;; Instrument index
-    .byte $0F ;; Volume
+    .byte $0F ;; Instrument index + volume
+    .byte $00 ;; Mute + Hold volume
 
     ;; Decoder B
-    .addr stream_ch3   ;; stream head
+    .addr streams::stream0_ch3    ;; stream head
+    .addr $0000 ;;TODO: .addr streams::stream0_vol_ch ;; volume head
+    .addr $0000 ;;TODO: .addr streams::stream0_instrument0 ;; instrument head
     .byte $30, $08, $00, $00 ;; Default silent registers
-    .byte $14 ;; Placeholder for speed/tempo
-    .byte $00 ;; Tick counter
+    .byte $50 ;; 6 ticks per tock, tick counter begins at 0
     .byte $01 ;; Length counter
-    .byte $01 ;; Elapsed counter
     .byte $00 ;; Remaining counter
-    .byte $00 ;; Instrument index
-    .byte $0F ;; Volume
+    .byte $0F ;; Instrument index + volume
+    .byte $00 ;; Mute + Hold volume
 
   test:
     LDX #$00
@@ -387,9 +341,9 @@ note_table:
     BNE loop_expected
 
     JSR Audio::Init
-    LDA #<audio_stream
+    LDA #<streams::stream0
     PHA_SP
-    LDA #>audio_stream
+    LDA #>streams::stream0
     PHA_SP
     JSR Audio::PlaySFX1
     PLN_SP 2
@@ -756,20 +710,27 @@ note_table:
   audio_stream:
     .byte %00001111 ;; All channels
     .byte %00000101 ;; Speed 5 aka 24 ticks per beat, 150bpm
-    ;; .repeat n .byte envelopes?
-    ;; .repeat n .byte frames?
+    ;; TODO: Combine as in decoders
 
     .addr stream_ch0
-    .addr stream_ch1
-    .addr stream_ch1
-    .addr stream_ch1
+    .addr stream_ignore
+    .addr stream_ignore
+    .addr stream_ignore
 
+    .addr stream_ignore
+    .addr stream_ignore
+    .addr stream_ignore
+    .addr stream_ignore
+
+    .addr stream_instrument
   stream_ch0:
     .byte $0D ;; Bb octave 1
     .byte $17 ;; G# octave 1
     .byte $1B ;; C octave 2
-  stream_ch1:
+  stream_ignore:
     .byte $FF
+  stream_instrument:
+    .byte $0F
 
   test:
     LDA #<audio_stream
@@ -839,10 +800,16 @@ note_table:
     ;; .repeat n .byte frames?
 
     .addr stream_ch0
-    .addr stream_ch1
-    .addr stream_ch1
-    .addr stream_ch1
+    .addr stream_ignore
+    .addr stream_ignore
+    .addr stream_ignore
 
+    .addr stream_ignore
+    .addr stream_ignore
+    .addr stream_ignore
+    .addr stream_ignore
+
+    .addr stream_instrument
   stream_ch0:
     .byte $0D ;; Bb octave 1
     .byte $17 ;; G# octave 1
@@ -851,8 +818,10 @@ note_table:
     .byte $1B ;; notes past stop; should never be played
     .byte $17 ;; notes past stop; should never be played
     .byte $0D ;; notes past stop; should never be played
-  stream_ch1:
+  stream_ignore:
     .byte $FF
+  stream_instrument:
+    .byte $0F
 
   test:
     LDA #<audio_stream
@@ -920,22 +889,30 @@ note_table:
 .proc TestDecodeStreamSilence
   JMP test
   audio_stream:
-    .byte %00001111 ;; All channels
+    .byte %00000001 ;; Sq1 channel
     .byte %00000101 ;; Speed 5 aka 24 ticks per beat, 150bpm
     ;; .repeat n .byte envelopes?
     ;; .repeat n .byte frames?
 
     .addr stream_ch0
-    .addr stream_ch1
-    .addr stream_ch1
-    .addr stream_ch1
+    .addr stream_ignore
+    .addr stream_ignore
+    .addr stream_ignore
 
+    .addr stream_ignore
+    .addr stream_ignore
+    .addr stream_ignore
+    .addr stream_ignore
+
+    .addr stream_instrument
   stream_ch0:
     .byte $0D ;; Bb octave 1
     .byte AUDIO::OP_CODES::SILENCE
     .byte $1B ;; C octave 2
-  stream_ch1:
+  stream_ignore:
     .byte $FF
+  stream_instrument:
+    .byte $0F
 
   test:
     LDA #<audio_stream
@@ -995,23 +972,31 @@ note_table:
 .proc TestDecodeStreamLength
   JMP test
   audio_stream:
-    .byte %00001111 ;; All channels
+    .byte %00000001 ;; Sq1 channel
     .byte %00000101 ;; Speed 5 aka 24 ticks per beat, 150bpm
     ;; .repeat n .byte envelopes?
     ;; .repeat n .byte frames?
 
     .addr stream_ch0
-    .addr stream_ch1
-    .addr stream_ch1
-    .addr stream_ch1
+    .addr stream_ignore
+    .addr stream_ignore
+    .addr stream_ignore
 
+    .addr stream_ignore
+    .addr stream_ignore
+    .addr stream_ignore
+    .addr stream_ignore
+
+    .addr stream_instrument
   stream_ch0:
     .byte $0D ;; Bb octave 1
     .byte AUDIO::OP_CODES::LENGTH, $04 ;; Length 4
     .byte $3f ;; C octave 5
     .byte $0D ;; Bb octave 1
-  stream_ch1:
+  stream_ignore:
     .byte $FF
+  stream_instrument:
+    .byte $0F
 
   test:
     LDA #<audio_stream
@@ -1041,15 +1026,13 @@ note_table:
     LDA #>NOTE_C_5
     STA TEST_EXPECTED+2 ;; Next note_hi
 
-    LDA #$01
-    STA TEST_EXPECTED+3 ;; New elapsed, since we played 1 frame of next note
     LDA #$03
-    STA TEST_EXPECTED+4 ;; New remaining, since we played 1 frame of next note
+    STA TEST_EXPECTED+3 ;; New remaining, since we played 1 frame of next note
 
     LDA #<(stream_ch0+4) ;; Shouldve read initial note, length op, length val, new note for +4
-    STA TEST_EXPECTED+5 ;; New stream head lo
+    STA TEST_EXPECTED+4 ;; New stream head lo
     LDA #>(stream_ch0+4) ;; Shouldve read initial note, length op, length val, new note for +4
-    STA TEST_EXPECTED+6 ;; New stream head hi
+    STA TEST_EXPECTED+5 ;; New stream head hi
 
     LDA audio_ram::decoder_0 + AUDIO::Decoder::length
     STA TEST_ACTUAL
@@ -1057,14 +1040,12 @@ note_table:
     STA TEST_ACTUAL+1
     LDA audio_ram::decoder_0 + AUDIO::Decoder::registers + AUDIO::Registers::note_hi
     STA TEST_ACTUAL+2
-    LDA audio_ram::decoder_0 + AUDIO::Decoder::elapsed
-    STA TEST_ACTUAL+3
     LDA audio_ram::decoder_0 + AUDIO::Decoder::remaining
-    STA TEST_ACTUAL+4
+    STA TEST_ACTUAL+3
     LDA audio_ram::decoder_0 + AUDIO::Decoder::stream_head
-    STA TEST_ACTUAL+5
+    STA TEST_ACTUAL+4
     LDA audio_ram::decoder_0 + AUDIO::Decoder::stream_head + 1
-    STA TEST_ACTUAL+6
+    STA TEST_ACTUAL+5
 
     SHOW
     INC_TEST_NO
@@ -1074,14 +1055,10 @@ note_table:
     .endrepeat
 
     LDA #$02
-    STA TEST_EXPECTED+3 ;; New elapsed, since we played 2 frames of next note
-    LDA #$02
-    STA TEST_EXPECTED+4 ;; New remaining, since we played 2 frames of next note
+    STA TEST_EXPECTED+3 ;; New remaining, since we played 2 frames of next note
 
-    LDA audio_ram::decoder_0 + AUDIO::Decoder::elapsed
-    STA TEST_ACTUAL+3
     LDA audio_ram::decoder_0 + AUDIO::Decoder::remaining
-    STA TEST_ACTUAL+4
+    STA TEST_ACTUAL+3
 
     SHOW
     INC_TEST_NO
@@ -1094,27 +1071,23 @@ note_table:
     STA TEST_EXPECTED+1 ;; new note_lo
     LDA #>NOTE_B_FLAT_1
     STA TEST_EXPECTED+2 ;; new note_hi
-    LDA #$01
-    STA TEST_EXPECTED+3 ;; New elapsed, since we played 1 frames of new note
     LDA #$03
-    STA TEST_EXPECTED+4 ;; New remaining, since we played 3 frames of new note
+    STA TEST_EXPECTED+3 ;; New remaining, since we played 3 frames of new note
     LDA #<(stream_ch0+5) ;; Shouldve read initial note, length op, length val, newer note for +5
-    STA TEST_EXPECTED+5 ;; New stream head lo
+    STA TEST_EXPECTED+4 ;; New stream head lo
     LDA #>(stream_ch0+4) ;; Shouldve read initial note, length op, length val, newer note for +5
-    STA TEST_EXPECTED+6 ;; New stream head hi
+    STA TEST_EXPECTED+5 ;; New stream head hi
 
     LDA audio_ram::decoder_0 + AUDIO::Decoder::registers + AUDIO::Registers::note_lo
     STA TEST_ACTUAL+1 ;; new note_lo
     LDA audio_ram::decoder_0 + AUDIO::Decoder::registers + AUDIO::Registers::note_hi
     STA TEST_ACTUAL+2 ;; new note_hi
-    LDA audio_ram::decoder_0 + AUDIO::Decoder::elapsed
-    STA TEST_ACTUAL+3
     LDA audio_ram::decoder_0 + AUDIO::Decoder::remaining
-    STA TEST_ACTUAL+4
+    STA TEST_ACTUAL+3
     LDA audio_ram::decoder_0 + AUDIO::Decoder::stream_head
-    STA TEST_ACTUAL+5
+    STA TEST_ACTUAL+4
     LDA audio_ram::decoder_0 + AUDIO::Decoder::stream_head + 1
-    STA TEST_ACTUAL+6
+    STA TEST_ACTUAL+5
 
     SHOW
 
@@ -1129,17 +1102,25 @@ note_table:
     .byte %00000101 ;; Speed 5 aka 24 ticks per beat, 150bpm
 
     .addr stream_ch0
-    .addr stream_ch1
-    .addr stream_ch1
-    .addr stream_ch1
+    .addr stream_ignore
+    .addr stream_ignore
+    .addr stream_ignore
 
+    .addr stream_ignore
+    .addr stream_ignore
+    .addr stream_ignore
+    .addr stream_ignore
+
+    .addr stream_instrument
   stream_ch0:
     .byte $0D ;; Bb octave 1
     .byte $3f ;; C octave 5
     .byte $17 ;; G# octave 1
     .byte AUDIO::OP_CODES::LOOP
-  stream_ch1:
+  stream_ignore:
     .byte $FF
+  stream_instrument:
+    .byte $0F
 
   test:
     LDA #<audio_stream

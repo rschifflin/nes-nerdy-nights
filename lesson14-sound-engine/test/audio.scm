@@ -172,7 +172,7 @@
   (name
     "Decode length pt2")
   (description
-    "When remaining is not zero, decoding decremets remaining and increments elapsed"))
+    "When remaining is not zero, decoding decremets remaining"))
 
 ;; Test 14-c
 (asm-test
