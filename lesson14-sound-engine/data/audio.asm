@@ -1,6 +1,6 @@
 .scope audio_data
   ignore_volume:
-    .byte $0F, AUDIO::VOLUME_LOOP_FOREVER
+    .byte AUDIO::VOLUME_LOOP_FOREVER
 
   test_song_1:
     .byte %00000011 ;; Just sq1 and sq2
@@ -16,10 +16,44 @@
     .addr test_song_stop ;; ch2
     .addr test_song_stop ;; ch3
 
-    .addr ignore_volume ;; ch0
-    .addr ignore_volume ;; ch1
-    .addr ignore_volume ;; ch2
-    .addr ignore_volume ;; ch3
+    .addr volume_creep ;; ch0
+    .addr volume_creep ;; ch1
+    .addr volume_creep ;; ch2
+    .addr volume_creep ;; ch3
+
+  volume_creep:
+    .byte $00, $87
+    .byte $01, $87
+    .byte $02, $87
+    .byte $03, $87
+    .byte $04, $87
+    .byte $05, $87
+    .byte $06, $87
+    .byte $07, $87
+    .byte $08, $87
+    .byte $09, $87
+    .byte $0A, $87
+    .byte $0B, $87
+    .byte $0C, $87
+    .byte $0D, $87
+    .byte $0E, $87
+    .byte $0F, $87
+    .byte $0F, $87
+    .byte $0E, $87
+    .byte $0D, $87
+    .byte $0C, $87
+    .byte $0B, $87
+    .byte $0A, $87
+    .byte $09, $87
+    .byte $08, $87
+    .byte $07, $87
+    .byte $06, $87
+    .byte $05, $87
+    .byte $04, $87
+    .byte $03, $87
+    .byte $02, $87
+    .byte $01, $87
+    .byte $00, $80
 
   test_song_2:
     .byte %00000101 ;; Just sq1 and tri
@@ -35,9 +69,9 @@
     .addr test_song_2_all_stream ;; ch2
     .addr test_song_stop ;; ch3
 
-    .addr ignore_volume ;; ch0
+    .addr test_song_2_volume_stream ;; ch0
     .addr ignore_volume ;; ch1
-    .addr ignore_volume ;; ch2
+    .addr test_song_2_volume_stream ;; ch0
     .addr ignore_volume ;; ch3
 
   test_song_3:
@@ -90,7 +124,6 @@
   test_song_2_volume_stream:
     .byte $02, $06, $0A, $0F
     .byte $0F, $0A, $06, $02
-
     .byte $0F, AUDIO::VOLUME_LOOP_FOREVER
 
   test_song_stop:
