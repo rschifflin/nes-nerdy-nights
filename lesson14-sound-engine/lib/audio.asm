@@ -957,12 +957,9 @@
       LDA r1
       STA (PLO),Y
 
-      JSR DecodeStreamVolume ;; preserves P
-
+      JSR DecodeStreamVolume ;; preserves P, A holds previous mute_x_hold_vol
       .scope Volume
-          ;; TODO: Apply volume envelope from instrument
-          LDY #AUDIO::Decoder::mute_x_hold_vol
-          LDA (PLO),Y
+          ;; DecodeStreamVolume set A to the prev mute_x_hold_vol, which we now check for the mute bit
           BMI done ;; muted by silence opcode, skip the volume control
           LDY #AUDIO::Decoder::instr_x_volume
           LDA (PLO), Y
@@ -994,10 +991,12 @@
   ;; 0-byte stack; 0 args, 0 return
   ;; Sets the value of the volume and the hold_volume counter based on state and stream position
   ;; P points to the decoder, does not get clobbered
+  ;; A returns the previous value of mute_x_hold_vol for convenience
   .proc DecodeStreamVolume
       ;; Lookup volume
       LDY #AUDIO::Decoder::mute_x_hold_vol
       LDA (PLO),Y
+      PHA
       TAX
       AND #%01111111
       BEQ when_hold_zero
@@ -1005,10 +1004,9 @@
       CMP #%01111111
       BEQ done ;; Holding forever means we don't need to fetch or decrement- volume is fine forever
     ;; Else, volume is held. Decrement and finish
-      STA r0
-      DEC r0
       TXA
-      ORA r0
+      SEC
+      SBC #$01
       LDY #AUDIO::Decoder::mute_x_hold_vol
       STA (PLO),Y
       JMP done
@@ -1034,13 +1032,12 @@
       INY
       LDA r1
       STA (PLO),Y
-      STX r0 ;; r0 holds the read byte
-      ;; Volume head now updated to next byte, and read is stored in r0
 
       TXA
       BMI parse_hold
       ;; Else, read byte is a volume value
     parse_value:
+      STA r0
       LDY #AUDIO::Decoder::instr_x_volume
       LDA (PLO),Y
       AND #%11110000
@@ -1050,15 +1047,16 @@
 
       ;; Read byte is a hold instruction
     parse_hold:
-      DEC r0 ;; 0-offset, so length 1 -> value 0
-      ASL r0
-      LSR r0 ;; Clear hi bit
+      AND #%01111111 ;; Clear hi bit
+      SEC
+      SBC #$01 ;; 0-offset, so length 1 -> value 0
+      STA r0
       LDY #AUDIO::Decoder::mute_x_hold_vol
       LDA (PLO),Y
       ORA r0
       STA (PLO),Y
-
     done:
+      PLA
       RTS
   .endproc
 

@@ -215,4 +215,25 @@
  (name
    "Decode volume pt2")
  (description
-   "With no hold, use the next volume value in the stream"))
+   "With still no hold, use the next volume value in the stream"))
+
+;; Test 16-c
+(asm-test
+ (name
+   "Decode volume pt3")
+ (description
+   "With a hold of 3, use the same volume for 3 frames"))
+
+;; Test 16-d
+(asm-test
+ (name
+   "Decode volume pt4")
+ (description
+   "After a hold, use the next volume value in the stream"))
+
+;; Test 16-e
+(asm-test
+ (name
+   "Decode volume pt5")
+ (description
+   "After a hold forever, always use the same volume"))

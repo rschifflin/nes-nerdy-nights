@@ -1202,8 +1202,8 @@ note_table:
     .byte $0F ;; Volume 15
     .byte $83 ;; Hold same volume for 3 more frames
     .byte $04 ;; Volume 4
-    .byte $FF ;; Hold volume forever
-    .byte AUDIO::OP_CODES::LOOP
+    .byte $80 ;; Hold volume forever
+    .byte $07 ;; Volume 7
   stream_ignore:
     .byte $80
   stream_instrument:
@@ -1247,10 +1247,6 @@ note_table:
     STA TEST_ACTUAL
 
     SHOW
-    ;;;;TODO:: UPDATE WITH TESTS vvvvvv
-    PLN_SP 6
-    RTS
-    ;;;;TODO:: UPDATE WITH TESTS ^^^^^^
     INC_TEST_NO
 
     .repeat 18
@@ -1258,6 +1254,10 @@ note_table:
     .endrepeat
 
     ;; Still holding the same volume. Initial value frame, plus 3 hold frames
+    LDA audio_ram::decoder_0 + AUDIO::Decoder::registers + AUDIO::Registers::env
+    AND #%00001111
+    STA TEST_ACTUAL
+
     SHOW
     INC_TEST_NO
 
@@ -1278,10 +1278,12 @@ note_table:
       JSR Audio::DecodeStream
     .endrepeat
 
-    ;; Still holding volume 4 forever
+    ;; We hold volume 4 forever
+    LDA audio_ram::decoder_0 + AUDIO::Decoder::registers + AUDIO::Registers::env
+    AND #%00001111
+    STA TEST_ACTUAL
 
     SHOW
-    INC_TEST_NO
 
     PLN_SP 6
     RTS
