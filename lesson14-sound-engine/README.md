@@ -60,3 +60,32 @@ byte 196: loop to start of stream
 In the future, we could have "loop back m times, distance n_hi,n_lo", where m is the next byte, n is the next further word
 In the future, we could have a "length 1" literal to reduce encoding size
 In the future, we could have a "length 2" literal to reduce encoding size
+
+Audio byte streams are accompanied by volume byte streams, which control the volume of the channel and are read for each note.
+Volume byte streams have their own encoding:
+  when the high bit (bit 7) is 0, interpret as a volume value.
+    byte 0-15 ($00 - $0F): volume value, set the channel to this volume
+  when the high bit (bit 7) is 1, interpret as a hold command.
+    byte 128-254 ($80 - $FE): hold this volume for n frames, where n is the lower 7-bit number
+    For example, %10001010 = hold volume for %00001010 frames
+                 %11100001 = hold volume for %01100001 frames
+                 %10011100 = hold volume for %00011100 frames
+                 etc...
+    byte 255 = hold this volume forever, end of stream
+
+Since decoder state should be initialized to volume $0F, the simplest volume stream is just [$FF], which would hold the initial volume forever.
+
+Audio byte streams hold an instrument pattern table in the audio stream header.
+The instrument pattern table represents, for each instrument, how each frame of a held note should change in volume
+Individual patterns are of variable length and don't share a common offset. The audio header instead contains a list of pointers to where each pattern begins.
+Patterns do not have a header. Since volume information only takes up 4 bits, the other 4 bits are used for next, stop and loop information.
+A pattern byte has the following format: nnnn-vvvv, where n is the byte offset from base of the next element of the pattern, and v is the volume at this frame.
+So a pattern of F-F-F-E-9-3-2-1 meant to hold the 1 until finished would look like:
+  [$1F,$2F,$3F,$4E,$59,$63,$72,$71] - note the high nibble of the last byte will loop on itself
+A pattern of 9-A-B-A meant to repeat for however long the note is held would look like:
+  [$19,$2A,$3B,$0A]
+A pattern of 1-6-F-A-B meant to attack to F before sustaining in a loop of A-B would look like:
+  [$11,$26,$3F,$4A,$3B]
+In essence, each byte is a cell in a linked list. With 4 bits for next, patterns have a max length of 16
+
+
