@@ -386,7 +386,7 @@
 
       LDA #$00
       LDY #AUDIO::Decoder::mute_x_hold_vol
-      STA (r0),Y ;; Write instrument index + volume
+      STA (r0),Y ;; Write mute_x_hold_vol
 
       RTS
   .endproc

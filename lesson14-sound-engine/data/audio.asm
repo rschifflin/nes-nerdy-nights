@@ -1,39 +1,57 @@
 .scope audio_data
+  ignore_volume:
+    .byte $0F, AUDIO::VOLUME_LOOP_FOREVER
+
   test_song_1:
-      .byte %00000011 ;; Just sq1 and sq2
-      .byte %00000101 ;; speed/tempo, speed 5 = 24 ticks/beat = 150 bpm
+    .byte %00000011 ;; Just sq1 and sq2
+    .byte %00000101 ;; speed/tempo, speed 5 = 24 ticks/beat = 150 bpm
 
-      ;; In the future:
-      ;; .repeat n .byte instruments?
-      ;; .repeat n .byte patterns?
-      ;; .repeat n .byte frames?
+    ;; In the future:
+    ;; .repeat n .byte instruments?
+    ;; .repeat n .byte patterns?
+    ;; .repeat n .byte frames?
 
-      .addr test_song_sq1_stream ;; ch0
-      .addr test_song_sq2_stream ;; ch1
-      .addr test_song_stop ;; ch2
-      .addr test_song_stop ;; ch3
+    .addr test_song_sq1_stream ;; ch0
+    .addr test_song_sq2_stream ;; ch1
+    .addr test_song_stop ;; ch2
+    .addr test_song_stop ;; ch3
+
+    .addr ignore_volume ;; ch0
+    .addr ignore_volume ;; ch1
+    .addr ignore_volume ;; ch2
+    .addr ignore_volume ;; ch3
 
   test_song_2:
-      .byte %00000101 ;; Just sq1 and tri
-      .byte %00000101 ;; speed/tempo, speed 5 = 24 ticks/beat = 150 bpm
+    .byte %00000101 ;; Just sq1 and tri
+    .byte %00000101 ;; speed/tempo, speed 5 = 24 ticks/beat = 150 bpm
 
-      ;; In the future:
-      ;; .repeat n .byte instruments?
-      ;; .repeat n .byte patterns?
-      ;; .repeat n .byte frames?
+    ;; In the future:
+    ;; .repeat n .byte instruments?
+    ;; .repeat n .byte patterns?
+    ;; .repeat n .byte frames?
 
-      .addr test_song_2_all_stream ;; ch0
-      .addr test_song_stop ;; ch1
-      .addr test_song_2_all_stream ;; ch2
-      .addr test_song_stop ;; ch3
+    .addr test_song_2_all_stream ;; ch0
+    .addr test_song_stop ;; ch1
+    .addr test_song_2_all_stream ;; ch2
+    .addr test_song_stop ;; ch3
+
+    .addr ignore_volume ;; ch0
+    .addr ignore_volume ;; ch1
+    .addr ignore_volume ;; ch2
+    .addr ignore_volume ;; ch3
 
   test_song_3:
-      .byte %00001111 ;; All channels
-      .byte %00000101 ;; speed/tempo, speed 5 = 24 ticks/beat = 150 bpm
-      .addr test_song_sq1_stream;; ch0
-      .addr test_song_sq1_stream ;; ch1
-      .addr test_song_sq1_stream ;; ch2
-      .addr test_song_sq1_stream ;; ch3
+    .byte %00001111 ;; All channels
+    .byte %00000101 ;; speed/tempo, speed 5 = 24 ticks/beat = 150 bpm
+    .addr test_song_sq1_stream;; ch0
+    .addr test_song_sq1_stream ;; ch1
+    .addr test_song_sq1_stream ;; ch2
+    .addr test_song_sq1_stream ;; ch3
+
+    .addr ignore_volume ;; ch0
+    .addr ignore_volume ;; ch1
+    .addr ignore_volume ;; ch2
+    .addr ignore_volume ;; ch3
 
   test_song_sq1_stream:
     ;; 4 notes = 1 beat
@@ -69,6 +87,12 @@
     .byte $3F, $33, $27, $1B
     .byte AUDIO::OP_CODES::STOP
 
+  test_song_2_volume_stream:
+    .byte $02, $06, $0A, $0F
+    .byte $0F, $0A, $06, $02
+
+    .byte $0F, AUDIO::VOLUME_LOOP_FOREVER
+
   test_song_stop:
     .byte AUDIO::OP_CODES::STOP
-.endscope
+  .endscope
