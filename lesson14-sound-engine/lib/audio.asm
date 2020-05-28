@@ -324,8 +324,10 @@
       LDY #AUDIO::Decoder::speed_x_tick
       STA (r0),Y
 
+      ;; Set stream header
       LDA channel_offset,X
       ASL A
+      PHA ;; Channel_offset x2
       CLC
       ADC #AUDIO::Stream::ch0 ;; base of channel addresses
       TAY
@@ -339,6 +341,22 @@
       DEY
       TXA
       STA (r0),Y ;; lo-> stream_head
+
+      ;; Set volume channel header
+      PLA ;; Channel_offset x2
+      CLC
+      ADC #AUDIO::Stream::vol0 ;; base of volume addresses
+      TAY
+      LDA (PLO),Y ;; lo-> vol_x
+      TAX
+      INY
+      LDA (PLO),Y ;; hi-> vol_x
+      LDY #AUDIO::Decoder::volume_head
+      INY
+      STA (r0),Y ;; hi-> volume_head
+      DEY
+      TXA
+      STA (r0),Y ;; lo-> volume_head
 
       LDX SP
       LDY channel_offset,X
@@ -364,6 +382,10 @@
 
       LDA #$0F
       LDY #AUDIO::Decoder::instr_x_volume
+      STA (r0),Y ;; Write instrument index + volume
+
+      LDA #$00
+      LDY #AUDIO::Decoder::mute_x_hold_vol
       STA (r0),Y ;; Write instrument index + volume
 
       RTS
@@ -885,7 +907,21 @@
       TAX ;; For safe-keeping
       SEC
       SBC #$60 ;; Note range is 0-95
-      BCS handle_opcode
+      BCC handle_note
+    handle_opcode:
+      ;; A holds the opcode vector table index
+      JSR RunOpCode
+
+      ;; Write back new stream head
+      LDY #AUDIO::Decoder::stream_head
+      LDA r0
+      STA (PLO),Y
+      INY
+      LDA r1
+      STA (PLO),Y
+      RTS
+
+    handle_note:
       ;; Otherwise, undo the subtraction- we have a note
 
       ;; Write note
@@ -921,6 +957,8 @@
       LDA r1
       STA (PLO),Y
 
+      JSR DecodeStreamVolume ;; preserves P
+
       .scope Volume
           ;; TODO: Apply volume envelope from instrument
           LDY #AUDIO::Decoder::mute_x_hold_vol
@@ -937,7 +975,8 @@
           STA (PLO),Y
         done:
       .endscope
-      ;; Done using remaining and elapsed as indices into instrument envelope
+
+      ;; Done using remaining as indices into instrument envelope
       ;; Decrement remaining
       LDY #AUDIO::Decoder::remaining
       LDA (PLO),Y
@@ -946,18 +985,79 @@
       TXA
       STA (PLO),Y
 
-      JMP done
-    handle_opcode:
-      ;; A holds the opcode vector table index
-      JSR RunOpCode
+    done:
+      RTS
 
-      ;; Write back new stream head
-      LDY #AUDIO::Decoder::stream_head
+  .endproc
+
+  ;;;; DecodeStreamVolume
+  ;; 0-byte stack; 0 args, 0 return
+  ;; Sets the value of the volume and the hold_volume counter based on state and stream position
+  ;; P points to the decoder, does not get clobbered
+  .proc DecodeStreamVolume
+      ;; Lookup volume
+      LDY #AUDIO::Decoder::mute_x_hold_vol
+      LDA (PLO),Y
+      TAX
+      AND #%01111111
+      BEQ when_hold_zero
+    ;; Else, volume was non-zero
+      CMP #%01111111
+      BEQ done ;; Holding forever means we don't need to fetch or decrement- volume is fine forever
+    ;; Else, volume is held. Decrement and finish
+      STA r0
+      DEC r0
+      TXA
+      ORA r0
+      LDY #AUDIO::Decoder::mute_x_hold_vol
+      STA (PLO),Y
+      JMP done
+
+    when_hold_zero:
+      ;; Hold is 0, new volume needed from stream
+      LDY #AUDIO::Decoder::volume_head
+      LDA (PLO),Y
+      STA r0
+      INY
+      LDA (PLO),Y
+      STA r1
+      LDY #$00
+      LDA (r0),Y
+      TAX ;; X holds the read byte
+      INC r0
+      BNE @skip
+      INC r1
+    @skip:
+      LDY #AUDIO::Decoder::volume_head
       LDA r0
       STA (PLO),Y
       INY
       LDA r1
       STA (PLO),Y
+      STX r0 ;; r0 holds the read byte
+      ;; Volume head now updated to next byte, and read is stored in r0
+
+      TXA
+      BMI parse_hold
+      ;; Else, read byte is a volume value
+    parse_value:
+      LDY #AUDIO::Decoder::instr_x_volume
+      LDA (PLO),Y
+      AND #%11110000
+      ORA r0
+      STA (PLO),Y
+      JMP done
+
+      ;; Read byte is a hold instruction
+    parse_hold:
+      DEC r0 ;; 0-offset, so length 1 -> value 0
+      ASL r0
+      LSR r0 ;; Clear hi bit
+      LDY #AUDIO::Decoder::mute_x_hold_vol
+      LDA (PLO),Y
+      ORA r0
+      STA (PLO),Y
+
     done:
       RTS
   .endproc

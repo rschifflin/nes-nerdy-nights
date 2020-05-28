@@ -102,7 +102,7 @@ note_table:
 
     ;; Decoder 0
     .addr streams::stream0_ch0    ;; stream head
-    .addr $0000 ;;TODO: .addr streams::stream0_vol_ch ;; volume head
+    .addr streams::stream0_vol_ch ;; volume head
     .addr $0000 ;;TODO: .addr streams::stream0_instrument0 ;; instrument head
     .byte $30, $08, $00, $00 ;; Default silent registers
     .byte $50 ;; 6 ticks per tock, tick counter begins at 0
@@ -113,7 +113,7 @@ note_table:
 
     ;; Decoder 1
     .addr streams::stream0_ch1    ;; stream head
-    .addr $0000 ;;TODO: .addr streams::stream0_vol_ch ;; volume head
+    .addr streams::stream0_vol_ch ;; volume head
     .addr $0000 ;;TODO: .addr streams::stream0_instrument0 ;; instrument head
     .byte $30, $08, $00, $00 ;; Default silent registers
     .byte $50 ;; 6 ticks per tock, tick counter begins at 0
@@ -124,7 +124,7 @@ note_table:
 
     ;; Decoder 2
     .addr streams::stream0_ch2    ;; stream head
-    .addr $0000 ;;TODO: .addr streams::stream0_vol_ch ;; volume head
+    .addr streams::stream0_vol_ch ;; volume head
     .addr $0000 ;;TODO: .addr streams::stream0_instrument0 ;; instrument head
     .byte $80, $08, $00, $00 ;; Default silent registers
     .byte $50 ;; 6 ticks per tock, tick counter begins at 0
@@ -135,7 +135,7 @@ note_table:
 
     ;; Decoder 3
     .addr streams::stream0_ch3    ;; stream head
-    .addr $0000 ;;TODO: .addr streams::stream0_vol_ch ;; volume head
+    .addr streams::stream0_vol_ch ;; volume head
     .addr $0000 ;;TODO: .addr streams::stream0_instrument0 ;; instrument head
     .byte $30, $00, $00, $00 ;; Default silent registers
     .byte $50 ;; 6 ticks per tock, tick counter begins at 0
@@ -196,7 +196,7 @@ note_table:
 
     ;; Decoder 4
     .addr streams::stream0_ch0    ;; stream head
-    .addr $0000 ;;TODO: .addr streams::stream0_vol_ch ;; volume head
+    .addr streams::stream0_vol_ch ;; volume head
     .addr $0000 ;;TODO: .addr streams::stream0_instrument0 ;; instrument head
     .byte $30, $08, $00, $00 ;; Default silent registers
     .byte $50 ;; 6 ticks per tock, tick counter begins at 0
@@ -207,7 +207,7 @@ note_table:
 
     ;; Decoder 5
     .addr streams::stream0_ch1    ;; stream head
-    .addr $0000 ;;TODO: .addr streams::stream0_vol_ch ;; volume head
+    .addr streams::stream0_vol_ch ;; volume head
     .addr $0000 ;;TODO: .addr streams::stream0_instrument0 ;; instrument head
     .byte $30, $08, $00, $00 ;; Default silent registers
     .byte $50 ;; 6 ticks per tock, tick counter begins at 0
@@ -218,7 +218,7 @@ note_table:
 
     ;; Decoder 6
     .addr streams::stream0_ch2    ;; stream head
-    .addr $0000 ;;TODO: .addr streams::stream0_vol_ch ;; volume head
+    .addr streams::stream0_vol_ch ;; volume head
     .addr $0000 ;;TODO: .addr streams::stream0_instrument0 ;; instrument head
     .byte $80, $08, $00, $00 ;; Default silent registers
     .byte $50 ;; 6 ticks per tock, tick counter begins at 0
@@ -229,7 +229,7 @@ note_table:
 
     ;; Decoder 7
     .addr streams::stream0_ch3    ;; stream head
-    .addr $0000 ;;TODO: .addr streams::stream0_vol_ch ;; volume head
+    .addr streams::stream0_vol_ch ;; volume head
     .addr $0000 ;;TODO: .addr streams::stream0_instrument0 ;; instrument head
     .byte $30, $08, $00, $00 ;; Default silent registers
     .byte $50 ;; 6 ticks per tock, tick counter begins at 0
@@ -289,7 +289,7 @@ note_table:
 
     ;; Decoder 8
     .addr streams::stream0_ch0    ;; stream head
-    .addr $0000 ;;TODO: .addr streams::stream0_vol_ch ;; volume head
+    .addr streams::stream0_vol_ch ;; volume head
     .addr $0000 ;;TODO: .addr streams::stream0_instrument0 ;; instrument head
     .byte $30, $08, $00, $00 ;; Default silent registers
     .byte $50 ;; 6 ticks per tock, tick counter begins at 0
@@ -300,7 +300,7 @@ note_table:
 
     ;; Decoder 9
     .addr streams::stream0_ch1    ;; stream head
-    .addr $0000 ;;TODO: .addr streams::stream0_vol_ch ;; volume head
+    .addr streams::stream0_vol_ch ;; volume head
     .addr $0000 ;;TODO: .addr streams::stream0_instrument0 ;; instrument head
     .byte $30, $08, $00, $00 ;; Default silent registers
     .byte $50 ;; 6 ticks per tock, tick counter begins at 0
@@ -311,7 +311,7 @@ note_table:
 
     ;; Decoder A
     .addr streams::stream0_ch2    ;; stream head
-    .addr $0000 ;;TODO: .addr streams::stream0_vol_ch ;; volume head
+    .addr streams::stream0_vol_ch ;; volume head
     .addr $0000 ;;TODO: .addr streams::stream0_instrument0 ;; instrument head
     .byte $80, $08, $00, $00 ;; Default silent registers
     .byte $50 ;; 6 ticks per tock, tick counter begins at 0
@@ -322,7 +322,7 @@ note_table:
 
     ;; Decoder B
     .addr streams::stream0_ch3    ;; stream head
-    .addr $0000 ;;TODO: .addr streams::stream0_vol_ch ;; volume head
+    .addr streams::stream0_vol_ch ;; volume head
     .addr $0000 ;;TODO: .addr streams::stream0_instrument0 ;; instrument head
     .byte $30, $08, $00, $00 ;; Default silent registers
     .byte $50 ;; 6 ticks per tock, tick counter begins at 0
@@ -728,7 +728,7 @@ note_table:
     .byte $17 ;; G# octave 1
     .byte $1B ;; C octave 2
   stream_ignore:
-    .byte $FF
+    .byte $80
   stream_instrument:
     .byte $0F
 
@@ -1177,6 +1177,116 @@ note_table:
     RTS
 .endproc
 
+.proc TestDecodeStreamVolume
+  JMP test
+  audio_stream:
+    .byte %00001111 ;; All channels
+    .byte %00000101 ;; Speed 5 aka 24 ticks per beat, 150bpm
+
+    .addr stream_ch0
+    .addr stream_ignore
+    .addr stream_ignore
+    .addr stream_ignore
+
+    .addr stream_vol0
+    .addr stream_ignore
+    .addr stream_ignore
+    .addr stream_ignore
+
+    .addr stream_instrument
+  stream_ch0:
+    .byte AUDIO::OP_CODES::LENGTH, $FF ;; Hold for 256 beats
+    .byte $0D ;; Bb octave 1
+  stream_vol0:
+    .byte $0A ;; Volume 10
+    .byte $0F ;; Volume 15
+    .byte $83 ;; Hold same volume for 3 more frames
+    .byte $04 ;; Volume 4
+    .byte $FF ;; Hold volume forever
+    .byte AUDIO::OP_CODES::LOOP
+  stream_ignore:
+    .byte $80
+  stream_instrument:
+    .byte $0F
+
+  test:
+    LDA #<audio_stream
+    PHA_SP
+    LDA #>audio_stream
+    PHA_SP
+    LDA #AUDIO::CHANNEL_SQ1_INDEX
+    PHA_SP
+    LDA #<audio_ram::decoder_0
+    PHA_SP
+    LDA #>audio_ram::decoder_0
+    PHA_SP
+    JSR Audio::InitializeDecoder
+    LDA #$00 ;; Prepare return value, ignore for this test
+    PHA_SP
+
+    ;; Initial tick always succeeds
+    JSR Audio::DecodeStream
+
+    LDA #$0A
+    STA TEST_EXPECTED ;; Initial volume 0A
+    LDA audio_ram::decoder_0 + AUDIO::Decoder::registers + AUDIO::Registers::env
+    AND #%00001111
+    STA TEST_ACTUAL
+
+    SHOW
+    INC_TEST_NO
+
+   .repeat 6
+     JSR Audio::DecodeStream
+   .endrepeat
+
+    LDA #$0F
+    STA TEST_EXPECTED ;; New volume 0F
+    LDA audio_ram::decoder_0 + AUDIO::Decoder::registers + AUDIO::Registers::env
+    AND #%00001111
+    STA TEST_ACTUAL
+
+    SHOW
+    ;;;;TODO:: UPDATE WITH TESTS vvvvvv
+    PLN_SP 6
+    RTS
+    ;;;;TODO:: UPDATE WITH TESTS ^^^^^^
+    INC_TEST_NO
+
+    .repeat 18
+      JSR Audio::DecodeStream
+    .endrepeat
+
+    ;; Still holding the same volume. Initial value frame, plus 3 hold frames
+    SHOW
+    INC_TEST_NO
+
+    .repeat 6
+      JSR Audio::DecodeStream
+    .endrepeat
+
+    LDA #$04
+    STA TEST_EXPECTED ;; New volume 04
+    LDA audio_ram::decoder_0 + AUDIO::Decoder::registers + AUDIO::Registers::env
+    AND #%00001111
+    STA TEST_ACTUAL
+
+    SHOW
+    INC_TEST_NO
+
+    .repeat 30
+      JSR Audio::DecodeStream
+    .endrepeat
+
+    ;; Still holding volume 4 forever
+
+    SHOW
+    INC_TEST_NO
+
+    PLN_SP 6
+    RTS
+.endproc
+
 
 .proc RunTests
     TEST TestInit
@@ -1194,5 +1304,6 @@ note_table:
     TEST TestDecodeStreamSilence
     TEST TestDecodeStreamLength
     TEST TestDecodeStreamLoop
+    TEST TestDecodeStreamVolume
     RTS
 .endproc
