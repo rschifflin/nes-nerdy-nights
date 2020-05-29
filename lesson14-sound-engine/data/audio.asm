@@ -7,10 +7,12 @@
     .byte $17
     .byte $2F
     .byte $3A
-    .byte $0A
+    .byte $2B
   volume_creep:
+    .byte $0F, AUDIO::VOLUME_HOLD_FOREVER
     .byte $0A, $87
-    .byte $0F, $80
+    .byte $06, $87
+    .byte $02, AUDIO::VOLUME_HOLD_FOREVER
 
   test_song_1:
     .byte %00000011 ;; Just sq1 and sq2
