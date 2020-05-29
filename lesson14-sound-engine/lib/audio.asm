@@ -35,7 +35,23 @@
     .byte AUDIO::CHANNEL_SQ2
     .byte AUDIO::CHANNEL_TRI
     .byte AUDIO::CHANNEL_NOISE
-
+  volume_table:
+    .byte $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+    .byte $00,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01
+    .byte $00,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$02
+    .byte $00,$01,$01,$01,$01,$01,$01,$01,$01,$01,$02,$02,$02,$02,$02,$03
+    .byte $00,$01,$01,$01,$01,$01,$01,$01,$02,$02,$02,$02,$03,$03,$03,$04
+    .byte $00,$01,$01,$01,$01,$01,$02,$02,$02,$03,$03,$03,$04,$04,$04,$05
+    .byte $00,$01,$01,$01,$01,$02,$02,$02,$03,$03,$04,$04,$04,$05,$05,$06
+    .byte $00,$01,$01,$01,$01,$02,$02,$03,$03,$04,$04,$05,$05,$06,$06,$07
+    .byte $00,$01,$01,$01,$02,$02,$03,$03,$04,$04,$05,$05,$06,$06,$07,$08
+    .byte $00,$01,$01,$01,$02,$03,$03,$04,$04,$05,$06,$06,$07,$07,$08,$09
+    .byte $00,$01,$01,$02,$02,$03,$04,$04,$05,$06,$06,$07,$08,$08,$09,$0A
+    .byte $00,$01,$01,$02,$02,$03,$04,$05,$05,$06,$07,$08,$08,$09,$0A,$0B
+    .byte $00,$01,$01,$02,$03,$04,$04,$05,$06,$07,$08,$08,$09,$0A,$0B,$0C
+    .byte $00,$01,$01,$02,$03,$04,$05,$06,$06,$07,$08,$09,$0A,$0B,$0C,$0D
+    .byte $00,$01,$01,$02,$03,$04,$05,$06,$07,$08,$09,$0A,$0B,$0C,$0D,$0E
+    .byte $00,$01,$02,$03,$04,$05,$06,$07,$08,$09,$0A,$0B,$0C,$0D,$0E,$0F
 .endscope
 
 ;; Sound engine API
@@ -954,6 +970,12 @@
       AND #%01111111
       STA (PLO),Y
 
+      ;; Reset instrument pattern on new note
+      LDY #AUDIO::Decoder::instr_x_volume
+      LDA (PLO),Y
+      AND #%00001111
+      STA (PLO),Y
+
     set_length:
       LDY #(AUDIO::Decoder::length)
       LDA (PLO),Y
@@ -984,25 +1006,40 @@
           LDA (PLO), Y
           STA r1
           LDY #AUDIO::Decoder::instr_x_volume
-          LDA (PLO), Y
+          LDA (PLO), Y ;; Old instr_x_volume
+          TAX
           .repeat 4
             LSR A
           .endrepeat
           TAY
-          LDA (r0),Y ;; New instr idx + instr volume
-          ;; TODO: Mix volume from channel
-          TAX
-          AND #%11110000
-          STA r0 ;; r0 = new instr
-          LDY #AUDIO::Decoder::instr_x_volume
-          LDA (PLO),Y
-          AND #%00001111
-          ORA r0
-          STA (PLO),Y
+          LDA (r0),Y ;; New instr_x_volume
+          STA r1
+          ;; A, r1 hold new instr_x_volume
+          ;; X holds old instr_x_volume
 
+          ;; Write back the new instr_x_volume
+          AND #%11110000
+          STA r0 ;; new instr
           TXA
           AND #%00001111
+          ORA r0
+          LDY #AUDIO::Decoder::instr_x_volume
+          STA (PLO),Y
+
+          ;; Look up the mixer value for new_volume x old_volume
+          LDA r1 ;; new instr_x_volume
+          AND #%00001111 ;; A holds new volume in the low nybble
           STA r0
+          TXA ;; A holds old instr_x_volume
+          .repeat 4
+            ASL A ;; A holds old volume in the high nybble
+          .endrepeat
+          ORA r0 ;; A holds combined volume, the volume table index
+          TAX
+          LDA audio_rom::volume_table,X
+          STA r0 ;; Mixed volume from table
+
+          ;; Write mixed volume to register
           LDY #(AUDIO::Decoder::registers + AUDIO::Registers::env)
           LDA (PLO),Y
           AND #%11110000
@@ -1102,6 +1139,7 @@
     .addr Audio::RunOpCodeStop-1
     .addr Audio::RunOpCodeLength-1
     .addr Audio::RunOpCodeLoop-1
+    .addr Audio::RunOpCodeInstrument-1
     ;; TODO:
     ;;   2 = set_length(l)
     ;;   3 = set_envelope(e)
@@ -1330,6 +1368,88 @@
       STA r1
 
       ;; Dont return to handle_opcode; loop back to read_byte and continue
+      PLA ;; RTS lo
+      PLA ;; RTS hi
+      LDA #>(Audio::DecodeStream::read_byte-1)
+      PHA
+      LDA #<(Audio::DecodeStream::read_byte-1)
+      PHA
+      RTS
+  .endproc
+
+  ;;;; RunOpCodeInstrument
+  ;; 5-byte stack: 5 args, 0 return
+  ;; Updates the instrument pointer and indexes its pattern to 0
+  ;; P is a pointer to the decoder
+  ;; r0/r1 contain a pointer to the stream head
+  .proc RunOpCodeInstrument
+      ;; stack frame
+      audio_lo = SW_STACK-6
+      audio_hi = SW_STACK-5
+      channel_offset = SW_STACK-4 ;; 0=sq1, 1=sq2, 2=tri, 3=noise
+      decoder_lo = SW_STACK-3
+      decoder_hi = SW_STACK-2
+      has_stopped = SW_STACK-1 ;; return val
+
+      ;; Read instrument index byte
+      LDY #$00
+      LDA (r0),Y
+      ASL A ;; Double the number. Assume instrument indices are capped at 0-127
+      TAY
+
+      ;; Increment stream_head
+      INC r0
+      BNE @skip
+      INC r1
+    @skip:
+      ;; TODO: Just add more zp registers...
+      LDA r0
+      PHA
+      LDA r1
+      PHA
+
+      LDX SP
+      LDA audio_lo,X
+      STA r0
+      LDA audio_hi,X
+      STA r1
+
+      LDA r0 ;; lo->audio
+      CLC
+      ADC #AUDIO::Stream::instrument0
+      BCC @skip2
+      INC r1
+      CLC
+    @skip2:
+      STY r0 ;; instrument index-addr
+      ADC r0
+      STA r0
+      BCC @skip3
+      INC r1
+    @skip3:
+      LDY #00
+      LDA (r0),Y
+      TAX
+      INY
+      LDA (r0),Y
+      LDY #AUDIO::Decoder::instrument + 1
+      STA (PLO),Y
+      DEY
+      TXA
+      STA (PLO),Y
+
+      LDY #AUDIO::Decoder::instr_x_volume
+      LDA #%00001111 ;; Pattern index 0
+      AND (PLO),Y
+      STA (PLO),Y
+
+      PLA
+      STA r1
+      PLA
+      STA r0
+
+      ;; Dont return to handle_opcode; loop back to read_byte and continue
+      ;; This treats silence as if it were just another note
       PLA ;; RTS lo
       PLA ;; RTS hi
       LDA #>(Audio::DecodeStream::read_byte-1)

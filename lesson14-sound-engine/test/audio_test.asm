@@ -910,9 +910,7 @@ note_table:
     .byte AUDIO::OP_CODES::SILENCE
     .byte $1B ;; C octave 2
   stream_ignore:
-    .byte $0F
     .byte AUDIO::VOLUME_HOLD_FOREVER
-    ;; TODO: remove initial 0F
   stream_instrument:
     .byte $0F
 
@@ -996,7 +994,7 @@ note_table:
     .byte $3f ;; C octave 5
     .byte $0D ;; Bb octave 1
   stream_ignore:
-    .byte $FF
+    .byte AUDIO::VOLUME_HOLD_FOREVER
   stream_instrument:
     .byte $0F
 
@@ -1124,7 +1122,7 @@ note_table:
     .byte $0B
     .byte AUDIO::VOLUME_HOLD_FOREVER
   stream_ignore:
-    .byte $80
+    .byte AUDIO::VOLUME_HOLD_FOREVER
   stream_instrument:
     .byte $0F
 
@@ -1231,10 +1229,10 @@ note_table:
     .byte $0F ;; Volume 15
     .byte $83 ;; Hold same volume for 3 more frames
     .byte $04 ;; Volume 4
-    .byte $80 ;; Hold volume forever
+    .byte AUDIO::VOLUME_HOLD_FOREVER
     .byte $07 ;; Volume 7
   stream_ignore:
-    .byte $80
+    .byte AUDIO::VOLUME_HOLD_FOREVER
   stream_instrument:
     .byte $0F
 
@@ -1339,7 +1337,7 @@ note_table:
     .byte AUDIO::OP_CODES::LENGTH, $FF ;; Hold future notes for 256 beats
     .byte $0D ;; Bb octave 1
   stream_ignore:
-    .byte $80
+    .byte AUDIO::VOLUME_HOLD_FOREVER
   stream_instrument:
     .byte $1A
     .byte $2A
@@ -1421,6 +1419,108 @@ note_table:
     RTS
 .endproc
 
+.proc TestDecodeStreamInstrument
+  JMP test
+  audio_stream:
+    .byte %00001111 ;; All channels
+    .byte %00000101 ;; Speed 5 aka 24 ticks per beat, 150bpm
+
+    .addr stream_ch0
+    .addr stream_ignore
+    .addr stream_ignore
+    .addr stream_ignore
+    ;;;;
+    .addr stream_ignore
+    .addr stream_ignore
+    .addr stream_ignore
+    .addr stream_ignore
+    ;;;;
+    .addr stream_instrument0
+    .addr stream_instrument1
+  stream_ch0:
+    .byte AUDIO::OP_CODES::LENGTH, $02
+    .byte AUDIO::OP_CODES::INSTRUMENT, $00 ;; instrument 1
+    .byte $0D ;; Bb octave 1
+    .byte AUDIO::OP_CODES::INSTRUMENT, $01 ;; instrument 1
+    .byte $0D ;; Bb octave 1
+    .byte $0D ;; Bb octave 1
+    .byte AUDIO::OP_CODES::LOOP
+
+  stream_ignore:
+    .byte AUDIO::VOLUME_HOLD_FOREVER
+  stream_instrument0:
+    .byte $1A
+    .byte $2B
+    .byte $3C
+    .byte $0D
+  stream_instrument1:
+    .byte $13
+    .byte $24
+    .byte $35
+    .byte $06
+
+  test:
+    LDA #<audio_stream
+    PHA_SP
+    LDA #>audio_stream
+    PHA_SP
+    LDA #AUDIO::CHANNEL_SQ1_INDEX
+    PHA_SP
+    LDA #<audio_ram::decoder_0
+    PHA_SP
+    LDA #>audio_ram::decoder_0
+    PHA_SP
+    JSR Audio::InitializeDecoder
+    LDA #$00 ;; Prepare return value, ignore for this test
+    PHA_SP
+
+    ;; Initial tick always succeeds
+    JSR Audio::DecodeStream
+    .repeat 12
+      JSR Audio::DecodeStream
+    .endrepeat
+
+    LDA #$03
+    STA TEST_EXPECTED ;; Instrument 1 volume
+
+    LDA audio_ram::decoder_0 + AUDIO::Decoder::registers + AUDIO::Registers::env
+    AND #%00001111
+    STA TEST_ACTUAL
+
+    SHOW
+    INC_TEST_NO
+
+    ;; Play another note without setting the instrument;
+    ;; Should still reset the pattern index
+    .repeat 12
+      JSR Audio::DecodeStream
+    .endrepeat
+
+    LDA audio_ram::decoder_0 + AUDIO::Decoder::registers + AUDIO::Registers::env
+    AND #%00001111
+    STA TEST_ACTUAL
+
+    SHOW
+    INC_TEST_NO
+
+    ;; Audio loops
+    ;; Should reset the instrument to 0 and pattern to 0
+    .repeat 12
+      JSR Audio::DecodeStream
+    .endrepeat
+
+    LDA #$0A
+    STA TEST_EXPECTED ;; Instrument 0 volume
+    LDA audio_ram::decoder_0 + AUDIO::Decoder::registers + AUDIO::Registers::env
+    AND #%00001111
+    STA TEST_ACTUAL
+
+    SHOW
+
+    PLN_SP 6
+    RTS
+.endproc
+
 
 .proc RunTests
     TEST TestInit
@@ -1438,7 +1538,8 @@ note_table:
     TEST TestDecodeStreamSilence
     TEST TestDecodeStreamLength
     TEST TestDecodeStreamLoop
-    ;TEST TestDecodeStreamVolume
+    TEST TestDecodeStreamVolume
     TEST TestDecodeStreamInstrumentPattern1
+    TEST TestDecodeStreamInstrument
     RTS
 .endproc

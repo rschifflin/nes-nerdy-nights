@@ -203,39 +203,39 @@
     "When looping, the volume stream also loops back to the start"))
 
 ;; Test 16-a
-;(asm-test
-;  (name
-;    "Decode volume pt1")
-;  (description
-;    "With no hold, use the next volume value in the stream"))
+(asm-test
+  (name
+    "Decode volume pt1")
+  (description
+    "With no hold, use the next volume value in the stream"))
 
 ;; Test 16-b
-;(asm-test
-; (name
-;   "Decode volume pt2")
-; (description
-;   "With still no hold, use the next volume value in the stream"))
+(asm-test
+ (name
+   "Decode volume pt2")
+ (description
+   "With still no hold, use the next volume value in the stream"))
 
 ;; Test 16-c
-;(asm-test
-; (name
-;   "Decode volume pt3")
-; (description
-;   "With a hold of 3, use the same volume for 3 frames"))
+(asm-test
+ (name
+   "Decode volume pt3")
+ (description
+   "With a hold of 3, use the same volume for 3 frames"))
 
 ;; Test 16-d
-;(asm-test
-; (name
-;   "Decode volume pt4")
-; (description
-;   "After a hold, use the next volume value in the stream"))
+(asm-test
+ (name
+   "Decode volume pt4")
+ (description
+   "After a hold, use the next volume value in the stream"))
 
 ;; Test 16-e
-;(asm-test
-; (name
-;   "Decode volume pt5")
-; (description
-;   "After a hold forever, always use the same volume"))
+(asm-test
+ (name
+   "Decode volume pt5")
+ (description
+   "After a hold forever, always use the same volume"))
 
 ;; Test 17-a
 (asm-test
@@ -268,3 +268,24 @@
  (description
    "For all reads after 8, volume is 1"
    "A->A->A->E->9->3->2->1"))
+
+;; Test 18-a
+(asm-test
+ (name
+   "Decode instrument op pt1")
+ (description
+   "Change the instrument to the index specified by the opcode"))
+
+;; Test 18-b
+(asm-test
+ (name
+   "Decode instrument op pt2")
+ (description
+   "New notes reset the instrument pattern index"))
+
+;; Test 18-c
+(asm-test
+ (name
+   "Decode instrument op pt3")
+ (description
+   "Looping is handled properly"))

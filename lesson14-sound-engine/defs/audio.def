@@ -22,6 +22,7 @@
     STOP = $61
     LENGTH = $62
     LOOP = $63
+    INSTRUMENT = $64
   .endscope
 
   .struct Registers

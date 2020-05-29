@@ -245,7 +245,19 @@ run:
         LDA #>audio_data::test_song_3
         PHA_SP
         JSR Audio::PlayBGM
+        PLN_SP 2
+
+        LDA #<audio_data::test_sfx_1
+        PHA_SP
+        LDA #>audio_data::test_sfx_1
+        PHA_SP
         JSR Audio::PlaySFX0
+        PLN_SP 2
+
+        LDA #<audio_data::test_sfx_2
+        PHA_SP
+        LDA #>audio_data::test_sfx_2
+        PHA_SP
         JSR Audio::PlaySFX1
         PLN_SP 2
         JMP done
