@@ -951,10 +951,27 @@
       RTS
 
     handle_note:
-      ;; Otherwise, undo the subtraction- we have a note
+      ;; Otherwise, discard the opcode subtraction
+      TXA ;; note index
 
-      ;; Write note
-      TXA
+      LDY SP
+      LDX channel_offset,Y
+      CMP #$03 ;; Noise channel offset
+      BNE write_note ;; All non-noise channels write from the note table
+    write_noise:
+      ;; A holds note index
+      ;; Noise channels only care about 32 values
+      ;; Index 0-15 maps to value 0---xxxx and index 16-31 maps to the value 1---xxxx
+      CMP #%00010000
+      BCC @when_bit_clear
+      ORA #%10000000
+    @when_bit_clear:
+      LDY #(AUDIO::Decoder::registers + AUDIO::Registers::note_lo)
+      STA (PLO),Y
+      JMP clear_mute
+
+    write_note:
+      ;; A holds note index
       ASL A ;; Index into word-sized note table
       TAX
       LDA note_table,X
@@ -964,6 +981,7 @@
       LDY #(AUDIO::Decoder::registers + AUDIO::Registers::note_hi)
       STA (PLO),Y
 
+    clear_mute:
       ;; Clear mute on new note
       LDY #AUDIO::Decoder::mute_x_hold_vol
       LDA (PLO),Y

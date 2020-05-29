@@ -234,6 +234,16 @@ run:
         LDA p1_controller_rising
         AND #CONTROLLER_UP
         BEQ no_up
+
+        LDA #<audio_data::test_song_3
+        PHA_SP
+        LDA #>audio_data::test_song_3
+        PHA_SP
+        JSR Audio::PlayBGM
+        JSR Audio::PlaySFX0
+        JSR Audio::PlaySFX1
+        PLN_SP 2
+        JMP done
         ;; when up pressed...
       no_up:
 

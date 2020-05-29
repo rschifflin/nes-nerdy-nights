@@ -9,7 +9,7 @@
     .byte $3A
     .byte $2B
   volume_creep:
-    .byte $0F, AUDIO::VOLUME_HOLD_FOREVER
+    .byte $0F, $87
     .byte $0A, $87
     .byte $06, $87
     .byte $02, AUDIO::VOLUME_HOLD_FOREVER
@@ -56,7 +56,8 @@
     .addr instrument0
   test_song_3:
     .byte %00001111 ;; All channels
-    .byte %00000101 ;; speed/tempo, speed 5 = 24 ticks/beat = 150 bpm
+    ;byte %00000101 ;; speed/tempo, speed 5 = 24 ticks/beat = 150 bpm
+    .byte %00000000 ;; speed/tempo, speed 0 = 1 ticks/beat = 600 bpm
     ;.addr test_song_sq1_stream;; ch0
     ;.addr test_song_sq1_stream ;; ch1
     ;.addr test_song_sq1_stream ;; ch2
@@ -66,12 +67,13 @@
     .addr test_song_intense_stream ;; ch2
     .addr test_song_intense_stream ;; ch3
 
-    .addr ignore_volume ;; ch0
-    .addr ignore_volume ;; ch1
-    .addr ignore_volume ;; ch2
-    .addr ignore_volume ;; ch3
+    .addr volume_creep ;; ch0
+    .addr volume_creep ;; ch1
+    .addr volume_creep ;; ch2
+    .addr volume_creep ;; ch3
 
     .addr instrument0
+    .addr instrument_blip
   test_sfx_1:
     .byte %00001100 ;; All channels
     .byte %00000101 ;; speed/tempo, speed 5 = 24 ticks/beat = 150 bpm
@@ -90,6 +92,7 @@
     .addr ignore_volume ;; ch3
 
     .addr instrument0
+    .addr instrument_blip
   test_sfx_2:
     .byte %00000011 ;; All channels
     .byte %00000101 ;; speed/tempo, speed 5 = 24 ticks/beat = 150 bpm
@@ -108,9 +111,10 @@
     .addr ignore_volume ;; ch3
 
     .addr instrument0
-
+    .addr instrument_blip
   test_song_intense_stream:
     .byte AUDIO::OP_CODES::LENGTH, $01
+    .byte AUDIO::OP_CODES::INSTRUMENT, $01
     .byte $27
     .byte AUDIO::OP_CODES::LOOP
 
