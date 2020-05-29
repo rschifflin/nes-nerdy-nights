@@ -1319,6 +1319,26 @@
       LDY #AUDIO::Decoder::instr_x_volume
       STA (PLO),Y
 
+      ;; Reset and write back instrument
+      LDX SP
+      LDA audio_lo,X
+      STA r0
+      LDA audio_hi,X
+      STA r1
+      LDY #AUDIO::Stream::instrument0
+      LDA (r0),Y
+      TAX
+      INY
+      LDA (r0),Y
+      STX r0
+      STA r1
+      LDY #AUDIO::Decoder::instrument
+      LDA r0
+      STA (PLO),Y
+      INY
+      LDA r1
+      STA (PLO),Y
+
       ;; Reset and write back volume_head
       LDX SP
       LDA audio_lo,X

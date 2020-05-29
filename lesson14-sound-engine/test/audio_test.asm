@@ -1438,6 +1438,7 @@ note_table:
     .addr stream_instrument0
     .addr stream_instrument1
   stream_ch0:
+    .byte $0D ;; Bb octave 1
     .byte AUDIO::OP_CODES::LENGTH, $02
     .byte AUDIO::OP_CODES::INSTRUMENT, $00 ;; instrument 1
     .byte $0D ;; Bb octave 1
@@ -1476,7 +1477,7 @@ note_table:
 
     ;; Initial tick always succeeds
     JSR Audio::DecodeStream
-    .repeat 12
+    .repeat 18
       JSR Audio::DecodeStream
     .endrepeat
 
